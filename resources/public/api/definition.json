@@ -1,0 +1,31 @@
+{
+  "scopes":[
+    {
+      "key":"write:push-registration",
+      "name":"Register device details",
+      "description":"Register device details for push registration"
+    }
+  ],
+  "api":{
+    "name":"Push Registration",
+    "description":"The API is used to register devices for push registration.",
+    "context":"push-registration",
+    "requiresTrust": true,
+    "versions":[
+      {
+        "version":"1.0",
+        "status":"PROTOTYPED",
+        "endpoints":[
+          {
+            "uriPattern":"/push/register",
+            "endpointName":"Register",
+            "method":"POST",
+            "authType":"USER",
+            "throttlingTier":"UNLIMITED",
+            "scope":"write:push-registration"
+          }
+        ]
+      }
+    ]
+  }
+}

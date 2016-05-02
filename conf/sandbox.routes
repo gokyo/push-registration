@@ -1,0 +1,2 @@
+
+POST    /push/registration  uk.gov.hmrc.pushregistration.controllers.SandboxPushRegistrationController.register()

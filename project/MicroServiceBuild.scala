@@ -1,0 +1,92 @@
+import sbt._
+import uk.gov.hmrc.SbtAutoBuildPlugin
+import uk.gov.hmrc.sbtdistributables.SbtDistributablesPlugin
+import uk.gov.hmrc.versioning.SbtGitVersioning
+
+
+object MicroServiceBuild extends Build with MicroService {
+
+  import play.PlayImport.PlayKeys._
+
+  val appName = "push-registration"
+
+  override lazy val plugins: Seq[Plugins] = Seq(
+    SbtAutoBuildPlugin, SbtGitVersioning, SbtDistributablesPlugin
+  )
+
+  override lazy val appDependencies: Seq[ModuleID] = AppDependencies()
+  override lazy val playSettings : Seq[Setting[_]] = Seq(routesImport ++= Seq("uk.gov.hmrc.pushregistration.binders.Binders._"))
+}
+
+private object AppDependencies {
+  import play.PlayImport._
+  import play.core.PlayVersion
+
+  private val wireMockVersion = "1.57"
+  private val scalaJVersion = "1.1.5"
+  private val scalaTestVersion = "2.2.6"
+  private val pegdownVersion = "1.6.0"
+  private val cucumberVersion = "1.2.4"
+
+  private val microserviceBootstrapVersion = "4.2.1"
+  private val playAuthVersion = "3.1.0"
+  private val playHealthVersion = "1.1.0"
+  private val playJsonLoggerVersion = "2.1.1"
+  private val playUrlBindersVersion = "1.0.0"
+  private val playConfigVersion = "2.0.1"
+  private val domainVersion = "3.5.0"
+  private val hmrcTestVersion = "1.6.0"
+  private val playHmrcApiVersion = "0.5.0"
+
+  val compile = Seq(
+    ws,
+    "uk.gov.hmrc" %% "microservice-bootstrap" % microserviceBootstrapVersion,
+    "uk.gov.hmrc" %% "play-authorisation" % playAuthVersion,
+    "uk.gov.hmrc" %% "play-health" % playHealthVersion,
+    "uk.gov.hmrc" %% "play-url-binders" % playUrlBindersVersion,
+    "uk.gov.hmrc" %% "play-config" % playConfigVersion,
+    "uk.gov.hmrc" %% "play-json-logger" % playJsonLoggerVersion,
+    "uk.gov.hmrc" %% "domain" % domainVersion,
+    "uk.gov.hmrc" %% "reactive-circuit-breaker" % "1.7.0",
+    "uk.gov.hmrc" %% "play-ui" %  "4.9.0",
+    "uk.gov.hmrc" %% "play-hmrc-api" % playHmrcApiVersion,
+    "uk.gov.hmrc" %% "play-reactivemongo" % "4.5.0"
+  )
+
+  trait TestDependencies {
+    lazy val scope: String = "test"
+    lazy val test : Seq[ModuleID] = ???
+  }
+
+  object Test {
+    def apply() = new TestDependencies {
+      override lazy val test = Seq(
+        "uk.gov.hmrc" %% "hmrctest" % hmrcTestVersion % "test,it",
+        "org.scalaj" %% "scalaj-http" % scalaJVersion % "test,it",
+        "org.scalatest" %% "scalatest" % scalaTestVersion % "test,it",
+        "org.pegdown" % "pegdown" % pegdownVersion % "test,it",
+        "com.typesafe.play" %% "play-test" % PlayVersion.current % "test,it",
+        "com.github.tomakehurst" % "wiremock" % wireMockVersion % "test,it",
+        "info.cukes" %% "cucumber-scala" % cucumberVersion % "test,it",
+        "info.cukes" % "cucumber-junit" % cucumberVersion % "test,it",
+        "uk.gov.hmrc" %% "reactivemongo-test" % "1.4.0" % scope
+      )
+    }.test
+  }
+
+  object IntegrationTest {
+    def apply() = new TestDependencies {
+
+      override lazy val scope: String = "it"
+
+      override lazy val test = Seq(
+        "uk.gov.hmrc" %% "hmrctest" % hmrcTestVersion % scope,
+        "org.scalatest" %% "scalatest" % scalaTestVersion % scope,
+        "org.pegdown" % "pegdown" % pegdownVersion % scope,
+        "com.typesafe.play" %% "play-test" % PlayVersion.current % scope
+      )
+    }.test
+  }
+
+  def apply() = compile ++ Test() ++ IntegrationTest()
+}

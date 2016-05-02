@@ -1,0 +1,4 @@
+
+POST    /push/registration      uk.gov.hmrc.pushregistration.controllers.LivePushRegistrationController.register()
+
+GET     /push/registration/:id  uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController.find(id:String)
