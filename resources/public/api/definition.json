@@ -23,6 +23,14 @@
             "authType":"USER",
             "throttlingTier":"UNLIMITED",
             "scope":"write:push-registration"
+          },
+          {
+            "uriPattern":"/push/register/{id}",
+            "endpointName":"Register",
+            "method":"GET",
+            "authType":"USER",
+            "throttlingTier":"UNLIMITED",
+            "scope":"write:push-registration"
           }
         ]
       }

@@ -70,7 +70,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
 
   protected def findByDeviceIdAndAuthId(deviceId: String, authId:String) = BSONDocument("deviceId" -> BSONString(deviceId), "authId" -> authId)
 
-  // The deviceId is unique and can only be associate to one authId and this is defined on creation of the record. The token can be updated.
+  // The deviceId is unique and can only be associated to one authId and this is defined on creation of the record. The token can be updated for a single record.
   // The 'updated' attribute is used to resolve the latest deviceId and Token that is associated to an authId. The deviceId can change over time!
   private def modifierForInsert(registration: PushRegistration, authId: String): BSONDocument = {
     BSONDocument(

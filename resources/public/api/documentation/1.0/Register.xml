@@ -1,5 +1,5 @@
 <endpoint>
-  <name>Submit Renewal</name>
+  <name>Push Registration</name>
   <description>This endpoint registers for push registration.</description>
   <section id="resource">
     <title>Resource</title>
