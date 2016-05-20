@@ -17,7 +17,7 @@
         "status":"PUBLISHED",
         "endpoints":[
           {
-            "uriPattern":"/push/register",
+            "uriPattern":"/push/registration",
             "endpointName":"Register",
             "method":"POST",
             "authType":"USER",
@@ -25,7 +25,7 @@
             "scope":"write:push-registration"
           },
           {
-            "uriPattern":"/push/register/{id}",
+            "uriPattern":"/push/registration/{id}",
             "endpointName":"Register",
             "method":"GET",
             "authType":"USER",
