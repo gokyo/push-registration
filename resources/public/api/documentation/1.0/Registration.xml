@@ -3,7 +3,7 @@
   <description>This endpoint registers for push registration.</description>
   <section id="resource">
     <title>Resource</title>
-    <resource>POST /push/register</resource>
+    <resource>POST /push/registration</resource>
   </section>
   <section id="path-parameters">
     <title>Path Parameters</title>

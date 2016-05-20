@@ -18,7 +18,7 @@
         "endpoints":[
           {
             "uriPattern":"/push/registration",
-            "endpointName":"Register",
+            "endpointName":"Registration",
             "method":"POST",
             "authType":"USER",
             "throttlingTier":"UNLIMITED",
@@ -26,7 +26,7 @@
           },
           {
             "uriPattern":"/push/registration/{id}",
-            "endpointName":"Register",
+            "endpointName":"Retrieve",
             "method":"GET",
             "authType":"USER",
             "throttlingTier":"UNLIMITED",

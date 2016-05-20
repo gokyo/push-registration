@@ -1,0 +1,60 @@
+<endpoint>
+  <name>Push Registration</name>
+  <description>This endpoint retrieves the registered data.</description>
+  <section id="resource">
+    <title>Resource</title>
+    <resource>GET /push/registration/{id}</resource>
+  </section>
+  <section id="path-parameters">
+    <title>Path Parameters</title>
+    <table>
+      <headings>
+        <cell>Name</cell>
+        <cell>Type</cell>
+        <cell>Example</cell>
+        <cell>Description</cell>
+      </headings>
+    </table>
+  </section>
+  <section id="authorisation">
+    <title>Authorisation</title>
+    <authorisation>
+      <type>USER</type>
+      <scope>write:push-registration</scope>
+    </authorisation>
+  </section>
+  <section id="content-types">
+    <title>Accepted Media Types</title>
+    <list>
+      <item>
+        <code>application/vnd.hmrc.1.0+json</code>
+      </item>
+    </list>
+  </section>
+  <section id="sample-response">
+    <title>Response</title>
+    <httpStatus>201 created, 200 updated</httpStatus>
+  </section>
+  <section id="error-responses">
+    <title>Error Scenarios</title>
+    <table>
+      <headings>
+        <cell>Error Scenario</cell>
+        <cell>HTTP Status</cell>
+        <cell>Code</cell>
+      </headings>
+      <rows>
+        <row>
+          <cell>Invalid Request</cell>
+          <cell><code>400 (Bad Request)</code></cell>
+          <cell><code>BAD_REQUEST</code></cell>
+        </row>
+          <row>
+              <cell>Failed to register</cell>
+              <cell><code>500</code></cell>
+              <cell><code>SERVER_ERROR</code></cell>
+          </row>
+      </rows>
+    </table>
+  </section>
+</endpoint>
