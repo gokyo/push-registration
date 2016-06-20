@@ -16,52 +16,29 @@
 
 package uk.gov.hmrc.pushregistration.connectors
 
-import play.api.{Logger, Play}
+import play.api.Play
 import play.api.libs.json.JsValue
+import uk.gov.hmrc.play.config.ServicesConfig
+import uk.gov.hmrc.play.http.{ForbiddenException, HeaderCarrier, HttpGet}
+import uk.gov.hmrc.pushregistration.config.WSHttp
 import uk.gov.hmrc.domain.Nino
 import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
-import uk.gov.hmrc.play.config.ServicesConfig
-import uk.gov.hmrc.play.http.{ForbiddenException, HeaderCarrier, HttpGet, UnauthorizedException}
-import uk.gov.hmrc.pushregistration.config.WSHttp
-import uk.gov.hmrc.pushregistration.domain.Accounts
 
 import scala.concurrent.{ExecutionContext, Future}
+
+
+class NinoNotFoundOnAccount(message:String) extends uk.gov.hmrc.play.http.HttpException(message, 401)
+class AccountWithLowCL(message:String) extends uk.gov.hmrc.play.http.HttpException(message, 401)
 
 case class Authority(nino:Nino, cl:ConfidenceLevel, authId:String)
 
 trait AuthConnector {
-
-  import uk.gov.hmrc.domain.{Nino, SaUtr}
-  import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
 
   val serviceUrl: String
 
   def http: HttpGet
 
   def serviceConfidenceLevel: ConfidenceLevel
-
-  def accounts()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Accounts] = {
-    http.GET(s"$serviceUrl/auth/authority") map {
-      resp =>
-        val json = resp.json
-        confirmConfiendenceLevel(json)
-
-        val accounts = json \ "accounts"
-
-        val utr = (accounts \ "sa" \ "utr").asOpt[String]
-
-        val nino = (accounts \ "paye" \ "nino").asOpt[String]
-
-        val acc = Accounts(nino.map(Nino(_)), utr.map(SaUtr(_)))
-        acc match {
-          case Accounts(None, _) =>
-            //TODO add a metric for this ????
-            Logger.warn("User without a NINO has accessed the service this should not be possible")
-            throw new UnauthorizedException("The user must have a National Insurance Number")
-          case _ => acc
-        }
-    }
-  }
 
   def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = {
     http.GET(s"$serviceUrl/auth/authority") map {
@@ -71,9 +48,8 @@ trait AuthConnector {
         val uri = (json \ "uri").as[String]
         val nino = (json \ "accounts" \ "paye" \ "nino").asOpt[String]
 
-        if(nino.isEmpty)
-          throw new UnauthorizedException("The user must have a National Insurance Number to access this service")
-
+        if((json \ "accounts" \ "paye" \ "nino").asOpt[String].isEmpty)
+          throw new NinoNotFoundOnAccount("The user must have a National Insurance Number")
         Authority(Nino(nino.get), ConfidenceLevel.fromInt(cl), uri)
       }
     }
@@ -86,6 +62,7 @@ trait AuthConnector {
     }
     usersCL
   }
+
 }
 
 object AuthConnector extends AuthConnector with ServicesConfig {

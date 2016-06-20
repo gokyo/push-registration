@@ -1,6 +1,6 @@
-Find latest Push Registration record
+Find Push Registration records
 ----
-  Find deviceId and token for associated authId.
+  Find tokens for associated authId.
 
 * **URL**
 
@@ -15,10 +15,7 @@ Find latest Push Registration record
     Example JSON response.
 
 ```json
-{
-  "deviceId": "some-device-id",
-  "token": "some-token"
-}
+[{"token": "some-token",{"token":"another-token"}}]
 ```
 
 *  **URL Params**
@@ -30,8 +27,13 @@ Find latest Push Registration record
 
 * **Error Response:**
 
+  * **Code:** 404 NOT_FOUND <br />
+
   * **Code:** 401 UNAUTHORIZED <br />
     **Content:** `{"code":"UNAUTHORIZED","message":"Bearer token is missing or not authorized for access"}`
+
+  * **Code:** 403 FORBIDDEN <br />
+    **Content:** `{"code":"FORBIDDEN","message":"Access denied"}`
 
   OR on failure.
 

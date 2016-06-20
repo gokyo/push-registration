@@ -14,7 +14,6 @@ Register for Push Registration
 
 ```json
 {
-  "deviceId": "some-device-id",
   "token": "some-token"
 }
 ```
@@ -38,7 +37,7 @@ Register for Push Registration
     **Content:** `{"code":"UNAUTHORIZED","message":"Bearer token is missing or not authorized for access"}`
 
   * **Code:** 403 FORBIDDEN <br />
-    **Content:** `{"code":"FORBIDDEN","message":"No auth header supplied in http request"}`
+    **Content:** `{"code":"FORBIDDEN","message":"Access denied"}`
 
   * **Code:** 406 NOT ACCEPTABLE <br />
     **Content:** `{"code":"ACCEPT_HEADER_INVALID","message":"The accept header is missing or invalid"}`

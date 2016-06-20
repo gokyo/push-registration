@@ -18,13 +18,13 @@ package uk.gov.hmrc.pushregistration.domain
 
 import play.api.libs.json.Json
 
-case class PushRegistration(deviceId: String, token: String)
+case class PushRegistration(token: String)
 
 object PushRegistration {
   implicit val format = Json.format[PushRegistration]
 
   def audit(registration: PushRegistration) = {
-    Map("deviceId" -> registration.deviceId, "token" -> registration.token)
+    Map("token" -> registration.token)
   }
 
 }

@@ -24,12 +24,12 @@ import uk.gov.hmrc.domain.Nino
 import uk.gov.hmrc.mongo.{Updated, Saved, DatabaseUpdate}
 import uk.gov.hmrc.play.audit.http.connector.{AuditConnector, AuditResult}
 import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
-import uk.gov.hmrc.play.http.{HeaderCarrier, HttpGet, Upstream4xxResponse}
+import uk.gov.hmrc.play.http.{ForbiddenException, HeaderCarrier, HttpGet, Upstream4xxResponse}
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.{Authority, AuthConnector}
 import uk.gov.hmrc.pushregistration.controllers.PushRegistrationController
-import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControl, AccountAccessControlForSandbox, AccountAccessControlWithHeaderCheck}
-import uk.gov.hmrc.pushregistration.domain.{PushRegistration, Accounts}
+import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControlCheckAccessOff, AccountAccessControl, AccountAccessControlWithHeaderCheck}
+import uk.gov.hmrc.pushregistration.domain.PushRegistration
 import uk.gov.hmrc.pushregistration.repository.{PushRegistrationPersist, PushRegistrationRepository}
 import uk.gov.hmrc.pushregistration.services.{SandboxPushRegistrationService, LivePushRegistrationService, PushRegistrationService}
 
@@ -43,15 +43,13 @@ class TestAuthConnector(nino: Option[Nino]) extends AuthConnector {
 
   override def http: HttpGet = ???
 
-  override def accounts()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Accounts] = Future(Accounts(nino, None))
-
   override def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = Future(Authority(nino.get, ConfidenceLevel.L200, "authId"))
 }
 
 class TestRepository extends PushRegistrationRepository {
-  override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = Future.successful(DatabaseUpdate(null, Saved(PushRegistrationPersist(BSONObjectID.generate,registration.deviceId, registration.token, authId))))
+  override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = Future.successful(DatabaseUpdate(null, Saved(PushRegistrationPersist(BSONObjectID.generate, registration.token, authId))))
 
-  override def findByAuthId(authId: String): Future[Option[PushRegistrationPersist]] = ???
+  override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = ???
 }
 
 class TestPushRegistrationService(testAuthConnector:TestAuthConnector, testRepository:TestRepository, testAuditConnector: AuditConnector) extends LivePushRegistrationService {
@@ -82,7 +80,7 @@ trait Setup {
   val acceptHeader = "Accept" -> "application/vnd.hmrc.1.0+json"
   val emptyRequest = FakeRequest()
 
-  val registration = PushRegistration("id", "token")
+  val registration = PushRegistration("token")
   val registrationJsonBody: JsValue = Json.toJson(registration)
 
   def fakeRequest(body:JsValue) = FakeRequest(POST, "url").withBody(body)
@@ -102,13 +100,14 @@ trait Setup {
   val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
   val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository , MicroserviceAuditConnector)
   val testSandboxPersonalIncomeService = SandboxPushRegistrationService
-  val sandboxCompositeAction = AccountAccessControlForSandbox
+  val sandboxCompositeAction = AccountAccessControlCheckAccessOff
 }
 
 trait Success extends Setup {
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService
     override val accessControl: AccountAccessControlWithHeaderCheck = testCompositeAction
+    override implicit val ec: ExecutionContext = ExecutionContext.global
   }
 }
 
@@ -116,7 +115,7 @@ trait SuccessUpdated extends Setup {
 
   override val testRepository = new TestRepository {
     override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
-      val update = PushRegistrationPersist(BSONObjectID.generate,registration.deviceId, registration.token, authId)
+      val update = PushRegistrationPersist(BSONObjectID.generate, registration.token, authId)
       Future.successful(DatabaseUpdate(null, Updated(update,update)))
     }
   }
@@ -125,6 +124,7 @@ trait SuccessUpdated extends Setup {
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService
     override val accessControl: AccountAccessControlWithHeaderCheck = testCompositeAction
+    override implicit val ec: ExecutionContext = ExecutionContext.global
   }
 }
 
@@ -141,6 +141,24 @@ trait AuthWithoutNino extends Setup {
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService
     override val accessControl: AccountAccessControlWithHeaderCheck = testCompositeAction
+    override implicit val ec: ExecutionContext = ExecutionContext.global
+  }
+}
+
+trait AuthLowCL extends Setup {
+
+  override val authConnector =  new TestAuthConnector(None) {
+    override def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = Future.failed(new ForbiddenException("Forbidden"))
+  }
+
+  override val testAccess = new TestAccessCheck(authConnector)
+  override val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
+  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, MicroserviceAuditConnector)
+
+  val controller = new PushRegistrationController {
+    override val service: PushRegistrationService = testPushRegistrationService
+    override val accessControl: AccountAccessControlWithHeaderCheck = testCompositeAction
+    override implicit val ec: ExecutionContext = ExecutionContext.global
   }
 }
 
@@ -148,5 +166,6 @@ trait SandboxSuccess extends Setup {
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testSandboxPersonalIncomeService
     override val accessControl: AccountAccessControlWithHeaderCheck = sandboxCompositeAction
+    override implicit val ec: ExecutionContext = ExecutionContext.global
   }
 }

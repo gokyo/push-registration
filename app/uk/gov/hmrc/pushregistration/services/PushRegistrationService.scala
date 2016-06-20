@@ -32,7 +32,7 @@ import scala.concurrent.Future
 trait PushRegistrationService {
 
   def register(registration: PushRegistration)(implicit hc: HeaderCarrier, authority:Option[Authority]): Future[Boolean]
-  def find(id:String)(implicit hc: HeaderCarrier): Future[Option[PushRegistration]]
+  def find(id:String)(implicit hc: HeaderCarrier): Future[Seq[PushRegistration]]
 }
 
 trait LivePushRegistrationService extends PushRegistrationService with Auditor {
@@ -53,12 +53,10 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
     }
   }
 
-  override def find(id:String)(implicit hc: HeaderCarrier): Future[Option[PushRegistration]] = {
+
+  override def find(id:String)(implicit hc: HeaderCarrier): Future[Seq[PushRegistration]] = {
     withAudit("find", Map("authId" -> id)) {
-      repository.findByAuthId(id).map {
-        case Some(value) => Some(PushRegistration(value.deviceId, value.token))
-        case _ => None
-      }
+      repository.findByAuthId(id).map { item => item.map(row => PushRegistration(row.token)) }
     }
   }
 }
@@ -69,7 +67,7 @@ object SandboxPushRegistrationService extends PushRegistrationService with FileR
     Future.successful(true)
   }
 
-  override def find(id:String)(implicit hc: HeaderCarrier): Future[Option[PushRegistration]] = Future.successful(None)
+  override def find(id:String)(implicit hc: HeaderCarrier): Future[Seq[PushRegistration]] = Future.successful(Seq(PushRegistration("token1"),PushRegistration("token2")))
 }
 
 object LivePushRegistrationService extends LivePushRegistrationService {

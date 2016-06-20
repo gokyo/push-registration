@@ -26,7 +26,7 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
 
   override lazy val fakeApplication = FakeApplication(additionalConfiguration = config)
 
-  "push registeration Live" should {
+  "push registration Live" should {
 
     "return successfully with a 201 response" in new Success {
 
@@ -34,7 +34,7 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
 
       status(result) shouldBe 201
 
-      testPushRegistrationService.saveDetails shouldBe Map("deviceId" -> registration.deviceId, "token" -> registration.token)
+      testPushRegistrationService.saveDetails shouldBe Map("token" -> registration.token)
     }
 
     "return successfully with a 200 response" in new SuccessUpdated {
@@ -43,7 +43,7 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
 
       status(result) shouldBe 200
 
-      testPushRegistrationService.saveDetails shouldBe Map("deviceId" -> registration.deviceId, "token" -> registration.token)
+      testPushRegistrationService.saveDetails shouldBe Map("token" -> registration.token)
     }
 
     "return bad result request when invalid json is submitted" in new Success {
@@ -56,6 +56,12 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
       val result = await(controller.register()(jsonRegistrationRequestWithNoAuthHeader))
 
       status(result) shouldBe 401
+    }
+
+    "Return 403 result when authority has low CL" in new AuthLowCL {
+      val result = await(controller.register()(jsonRegistrationRequestWithNoAuthHeader))
+
+      status(result) shouldBe 403
     }
 
     "return 406 result when the headers are invalid" in new Success {

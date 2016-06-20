@@ -17,29 +17,27 @@
 package uk.gov.hmrc.pushregistration.controllers
 
 import play.api.libs.json.Json
-import play.api.mvc.Action
+import uk.gov.hmrc.api.controllers.HeaderValidator
 import uk.gov.hmrc.play.http.HeaderCarrier
 import uk.gov.hmrc.play.microservice.controller.BaseController
+import uk.gov.hmrc.pushregistration.controllers.action.AccountAccessControlWithHeaderCheck
 import uk.gov.hmrc.pushregistration.services.{LivePushRegistrationService, PushRegistrationService}
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 
-trait FindPushRegistrationController extends BaseController {
+trait FindPushRegistrationController extends BaseController with HeaderValidator with ErrorHandling {
   val service: PushRegistrationService
+  val accessControl: AccountAccessControlWithHeaderCheck
 
-  def find(id:String) = Action.async {
-
+  def find(id:String) = accessControl.validateAccept(acceptHeaderValidationRules).async {
     implicit request =>
       implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
-
-      service.find(id).map {
-        case Some(found) => Ok(Json.toJson(found))
-        case _ => NotFound
-      }
-  }
+      errorWrapper(service.find(id).map { response => if (response.isEmpty) NotFound else Ok(Json.toJson(response)) })
+    }
 }
 
-// Note: Controller is not exposed to the API gateway.
 object FindPushRegistrationController extends FindPushRegistrationController {
   override val service = LivePushRegistrationService
+  override val accessControl = AccountAccessControlWithHeaderCheck
+  override implicit val ec: ExecutionContext = ExecutionContext.global
 }
