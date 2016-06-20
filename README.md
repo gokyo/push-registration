@@ -3,7 +3,7 @@ push-registration
 
 [![Build Status](https://travis-ci.org/hmrc/push-registration.svg?branch=master)](https://travis-ci.org/hmrc/push-registration) [ ![Download](https://api.bintray.com/packages/hmrc/releases/push-registration/images/download.svg) ](https://bintray.com/hmrc/releases/personal-income/_latestVersion)
 
-Register mobile device Id and Token
+Register mobile notification Token
 
 Requirements
 ------------

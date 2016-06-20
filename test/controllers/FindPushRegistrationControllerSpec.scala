@@ -22,13 +22,13 @@ import play.api.mvc.Result
 import play.api.test.FakeApplication
 import play.api.test.Helpers._
 import reactivemongo.bson.BSONObjectID
-import uk.gov.hmrc.api.domain.Registration
 import uk.gov.hmrc.mongo.DatabaseUpdate
 import uk.gov.hmrc.play.http.{Upstream4xxResponse, HeaderCarrier}
 import uk.gov.hmrc.play.test.{UnitSpec, WithFakeApplication}
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.Authority
 import uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController
+import uk.gov.hmrc.pushregistration.controllers.action.AccountAccessControlWithHeaderCheck
 import uk.gov.hmrc.pushregistration.domain.PushRegistration
 import uk.gov.hmrc.pushregistration.repository.PushRegistrationPersist
 import uk.gov.hmrc.pushregistration.services.PushRegistrationService
@@ -40,14 +40,13 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
   override lazy val fakeApplication = FakeApplication(additionalConfiguration = config)
 
-  val registrationPersist = PushRegistrationPersist(BSONObjectID.generate, "id", "token", "authId")
-  val registration = Registration(registrationPersist.deviceId, registrationPersist.token)
-  val found = new TestFindRepository(Some(registrationPersist))
+  val registrationPersist = PushRegistrationPersist(BSONObjectID.generate, "token", "authId")
+  val found = new TestFindRepository(Seq(registrationPersist))
 
-  class TestFindRepository(response:Option[PushRegistrationPersist]) extends TestRepository {
+  class TestFindRepository(response:Seq[PushRegistrationPersist]) extends TestRepository {
     override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = Future.failed(new IllegalArgumentException("Not defined"))
 
-    override def findByAuthId(authId: String): Future[Option[PushRegistrationPersist]] = Future.successful(response)
+    override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
   }
 
   trait Success extends Setup {
@@ -58,16 +57,23 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
     val controller = new FindPushRegistrationController {
       override val service: PushRegistrationService = testPushRegistrationService
+      val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
+      override val accessControl: AccountAccessControlWithHeaderCheck = testCompositeAction
+      override implicit val ec: ExecutionContext = ExecutionContext.global
+
     }
   }
 
   trait NotFoundResult extends Setup {
-    val testFinderRepository = new TestFindRepository(None)
+    val testFinderRepository = new TestFindRepository(Seq.empty)
 
     override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testFinderRepository , MicroserviceAuditConnector)
 
     val controller = new FindPushRegistrationController {
       override val service: PushRegistrationService = testPushRegistrationService
+      val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
+      override val accessControl: AccountAccessControlWithHeaderCheck = testCompositeAction
+      override implicit val ec: ExecutionContext = ExecutionContext.global
     }
   }
 
@@ -83,6 +89,9 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
     val controller = new FindPushRegistrationController {
       override val service: PushRegistrationService = testPushRegistrationService
+      val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
+      override val accessControl: AccountAccessControlWithHeaderCheck = testCompositeAction
+      override implicit val ec: ExecutionContext = ExecutionContext.global
     }
   }
 
@@ -90,18 +99,18 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
     "find the record successfully and return 200 success and Json" in new Success {
 
-      val result: Result = await(controller.find("id")(emptyRequest))
+      val result: Result = await(controller.find("id")(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 200
 
-      contentAsJson(result) shouldBe Json.toJson(registration)
+      contentAsJson(result) shouldBe Json.toJson(Seq(registration))
 
       testPushRegistrationService.saveDetails shouldBe Map("authId" -> "id")
     }
 
     "return 404 when the record cannot be found" in new NotFoundResult {
 
-      val result: Result = await(controller.find("id")(emptyRequest))
+      val result: Result = await(controller.find("id")(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 404
 

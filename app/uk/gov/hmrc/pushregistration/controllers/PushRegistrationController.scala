@@ -17,31 +17,17 @@
 package uk.gov.hmrc.pushregistration.controllers
 
 import play.api.mvc.BodyParsers
-import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControlWithHeaderCheck, AccountAccessControlForSandbox}
+import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControlWithHeaderCheck, AccountAccessControlCheckAccessOff}
 import play.api.libs.json.{JsError, Json}
 import uk.gov.hmrc.pushregistration.domain.PushRegistration
 import uk.gov.hmrc.pushregistration.services._
-import play.api.{mvc, Logger}
-import uk.gov.hmrc.play.http.{UnauthorizedException, HeaderCarrier, NotFoundException}
+import play.api.Logger
+import uk.gov.hmrc.play.http.{UnauthorizedException, HeaderCarrier}
 import uk.gov.hmrc.play.microservice.controller.BaseController
 import uk.gov.hmrc.api.controllers._
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-trait ErrorHandling {
-  self: BaseController =>
-
-  def errorWrapper(func: => Future[mvc.Result])(implicit hc: HeaderCarrier) = {
-    func.recover {
-      case ex: NotFoundException => Status(ErrorNotFound.httpStatusCode)(Json.toJson(ErrorNotFound))
-
-      case e: Throwable =>
-        Logger.error(s"Internal server error: ${e.getMessage}", e)
-        Status(ErrorInternalServerError.httpStatusCode)(Json.toJson(ErrorInternalServerError))
-    }
-  }
-}
 
 trait PushRegistrationController extends BaseController with HeaderValidator with ErrorHandling {
   val service: PushRegistrationService
@@ -73,12 +59,14 @@ trait PushRegistrationController extends BaseController with HeaderValidator wit
 
 object SandboxPushRegistrationController extends PushRegistrationController {
   override val service = SandboxPushRegistrationService
-  override val accessControl = AccountAccessControlForSandbox
+  override val accessControl = AccountAccessControlCheckAccessOff
+  override implicit val ec: ExecutionContext = ExecutionContext.global
 }
 
 object LivePushRegistrationController extends PushRegistrationController {
   override val service = LivePushRegistrationService
   override val accessControl = AccountAccessControlWithHeaderCheck
+  override implicit val ec: ExecutionContext = ExecutionContext.global
 }
 
 
