@@ -33,7 +33,7 @@ trait PushRegistrationController extends BaseController with HeaderValidator wit
   val service: PushRegistrationService
   val accessControl: AccountAccessControlWithHeaderCheck
 
-  final def register() = accessControl.validateAccept(acceptHeaderValidationRules).async(BodyParsers.parse.json) {
+  final def register(journeyId: Option[String] = None) = accessControl.validateAccept(acceptHeaderValidationRules).async(BodyParsers.parse.json) {
     implicit authenticated =>
       implicit val hc = HeaderCarrier.fromHeadersAndSession(authenticated.request.headers, None)
 
