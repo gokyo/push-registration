@@ -22,13 +22,7 @@
             "method":"POST",
             "authType":"USER",
             "throttlingTier":"UNLIMITED",
-            "scope":"write:push-registration",
-            "queryParameters": [
-              {
-                "name": "journeyId",
-                "required": false
-              }
-            ]
+            "scope":"write:push-registration"
           },
           {
             "uriPattern":"/push/registration/{id}",
@@ -36,13 +30,7 @@
             "method":"GET",
             "authType":"USER",
             "throttlingTier":"UNLIMITED",
-            "scope":"write:push-registration",
-            "queryParameters": [
-              {
-                "name": "journeyId",
-                "required": false
-              }
-            ]
+            "scope":"write:push-registration"
           }
         ]
       }
