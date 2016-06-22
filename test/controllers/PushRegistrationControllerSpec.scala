@@ -46,6 +46,15 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
       testPushRegistrationService.saveDetails shouldBe Map("token" -> registration.token)
     }
 
+    "return successfully with a 200 response when journeyId is supplied" in new SuccessUpdated {
+
+      val result: Result = await(controller.register(journeyId)(jsonRegistrationRequestWithNoAuthHeader))
+
+      status(result) shouldBe 200
+
+      testPushRegistrationService.saveDetails shouldBe Map("token" -> registration.token)
+    }
+
     "return bad result request when invalid json is submitted" in new Success {
       val result = await(controller.register()(registrationBadRequest))
 

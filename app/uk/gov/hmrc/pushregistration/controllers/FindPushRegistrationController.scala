@@ -29,7 +29,7 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
   val service: PushRegistrationService
   val accessControl: AccountAccessControlWithHeaderCheck
 
-  def find(id:String) = accessControl.validateAccept(acceptHeaderValidationRules).async {
+  def find(id:String, journeyId: Option[String] = None) = accessControl.validateAccept(acceptHeaderValidationRules).async {
     implicit request =>
       implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
       errorWrapper(service.find(id).map { response => if (response.isEmpty) NotFound else Ok(Json.toJson(response)) })

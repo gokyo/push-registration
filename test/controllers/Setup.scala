@@ -16,22 +16,24 @@
 
 package controllers
 
+import java.util.UUID
+
 import play.api.libs.json.{JsValue, Json}
 import play.api.test.FakeRequest
 import play.api.test.Helpers._
 import reactivemongo.bson.BSONObjectID
 import uk.gov.hmrc.domain.Nino
-import uk.gov.hmrc.mongo.{Updated, Saved, DatabaseUpdate}
+import uk.gov.hmrc.mongo.{DatabaseUpdate, Saved, Updated}
 import uk.gov.hmrc.play.audit.http.connector.{AuditConnector, AuditResult}
 import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
 import uk.gov.hmrc.play.http.{ForbiddenException, HeaderCarrier, HttpGet, Upstream4xxResponse}
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
-import uk.gov.hmrc.pushregistration.connectors.{Authority, AuthConnector}
+import uk.gov.hmrc.pushregistration.connectors.{AuthConnector, Authority}
 import uk.gov.hmrc.pushregistration.controllers.PushRegistrationController
-import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControlCheckAccessOff, AccountAccessControl, AccountAccessControlWithHeaderCheck}
+import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControl, AccountAccessControlCheckAccessOff, AccountAccessControlWithHeaderCheck}
 import uk.gov.hmrc.pushregistration.domain.PushRegistration
 import uk.gov.hmrc.pushregistration.repository.{PushRegistrationPersist, PushRegistrationRepository}
-import uk.gov.hmrc.pushregistration.services.{SandboxPushRegistrationService, LivePushRegistrationService, PushRegistrationService}
+import uk.gov.hmrc.pushregistration.services.{LivePushRegistrationService, PushRegistrationService, SandboxPushRegistrationService}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -75,6 +77,7 @@ class TestAccountAccessControlWithAccept(testAccessCheck:AccountAccessControl) e
 
 trait Setup {
   implicit val hc = HeaderCarrier()
+  val journeyId = Option(UUID.randomUUID().toString)
 
   val nino = Nino("CS700100A")
   val acceptHeader = "Accept" -> "application/vnd.hmrc.1.0+json"

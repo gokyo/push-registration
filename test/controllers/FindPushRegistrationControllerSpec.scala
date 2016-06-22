@@ -107,6 +107,16 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
       testPushRegistrationService.saveDetails shouldBe Map("authId" -> "id")
     }
+    "find the record successfully with journeyId and return 200 success and Json" in new Success {
+
+      val result: Result = await(controller.find("id", journeyId)(emptyRequestWithAcceptHeader))
+
+      status(result) shouldBe 200
+
+      contentAsJson(result) shouldBe Json.toJson(Seq(registration))
+
+      testPushRegistrationService.saveDetails shouldBe Map("authId" -> "id")
+    }
 
     "return 404 when the record cannot be found" in new NotFoundResult {
 
