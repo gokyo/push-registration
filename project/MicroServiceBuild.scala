@@ -50,7 +50,7 @@ private object AppDependencies {
     "uk.gov.hmrc" %% "reactive-circuit-breaker" % "1.7.0",
     "uk.gov.hmrc" %% "play-ui" %  "4.9.0",
     "uk.gov.hmrc" %% "play-hmrc-api" % playHmrcApiVersion,
-    "uk.gov.hmrc" %% "play-reactivemongo" % "4.5.0"
+    "uk.gov.hmrc" %% "play-reactivemongo" % "4.8.0"
   )
 
   trait TestDependencies {
@@ -69,7 +69,7 @@ private object AppDependencies {
         "com.github.tomakehurst" % "wiremock" % wireMockVersion % "test,it",
         "info.cukes" %% "cucumber-scala" % cucumberVersion % "test,it",
         "info.cukes" % "cucumber-junit" % cucumberVersion % "test,it",
-        "uk.gov.hmrc" %% "reactivemongo-test" % "1.4.0" % scope
+        "uk.gov.hmrc" %% "reactivemongo-test" % "1.6.0" % scope
       )
     }.test
   }
