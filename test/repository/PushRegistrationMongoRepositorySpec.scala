@@ -49,12 +49,12 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
   "Validating index's " should {
 
-    "not be able to insert duplicate data entries" in new Setup {
+    "able to insert duplicate data entries for auth Id and Token" in new Setup {
       val resp: DatabaseUpdate[PushRegistrationPersist] = await(repository.save(registration, authId))
 
       a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue))
-      a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate)))
-      a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate, authId = "another authId")))
+      await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate)))
+      await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate, authId = "another authId")))
     }
   }
 
@@ -98,7 +98,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       result.updateType shouldBe an[Saved[_]]
       result.updateType.savedValue.token shouldBe testToken
       result.updateType.savedValue.authId shouldBe authId
-      
+
       await(repository.save(registration.copy(token = "another token"), authId))
       await(repository.save(registration.copy(token = "yet another token"), authId))
       await(repository.save(registration.copy(token = "yet another token"), authId))
@@ -114,7 +114,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       findResult(0).authId shouldBe authId
 
     }
-    
+
     "not find an existing record" in new Setup {
       val result = await(repository.save(registration, authId))
 
