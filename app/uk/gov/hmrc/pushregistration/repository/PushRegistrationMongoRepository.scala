@@ -81,7 +81,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = {
     collection.
       find(Json.obj("authId" -> Json.toJson(authId))).
-      sort(new JsObject(Seq("updated" -> JsNumber(-1)))).
+      sort(Json.obj("updated" -> JsNumber(-1))).
       cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
       collect[Seq]()//.
   }
