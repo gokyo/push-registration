@@ -82,10 +82,12 @@ private object AppDependencies {
       override lazy val scope: String = "it"
 
       override lazy val test = Seq(
+        "com.typesafe.play" %% "play-test" % PlayVersion.current % scope,
         "uk.gov.hmrc" %% "hmrctest" % hmrcTestVersion % scope,
-        "org.scalatest" %% "scalatest" % scalaTestVersion % scope,
         "org.pegdown" % "pegdown" % pegdownVersion % scope,
-        "com.typesafe.play" %% "play-test" % PlayVersion.current % scope
+        "com.github.tomakehurst" % "wiremock" % wireMockVersion % scope,
+        "org.mockito" % "mockito-all" % "1.9.5" % scope,
+        "org.scalatestplus.play" %% "scalatestplus-play" % "1.5.1" % scope
       )
     }.test
   }
