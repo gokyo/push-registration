@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 HM Revenue & Customs
+ * Copyright 2017 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package uk.gov.hmrc.pushregistration.controllers
 
 import play.api.mvc.BodyParsers
 import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControlWithHeaderCheck, AccountAccessControlCheckAccessOff}
-import play.api.libs.json.{JsError, Json}
+import play.api.libs.json._
 import uk.gov.hmrc.pushregistration.domain.PushRegistration
 import uk.gov.hmrc.pushregistration.services._
 import play.api.Logger
@@ -39,8 +39,9 @@ trait PushRegistrationController extends BaseController with HeaderValidator wit
 
       authenticated.request.body.validate[PushRegistration].fold(
         errors => {
-          Logger.warn("Received error with parsing service register: " + errors)
-          Future.successful(BadRequest(Json.obj("message" -> JsError.toFlatJson(errors))))
+          val failure = JsError.toJson(errors)
+          Logger.warn("Received error with parsing service register: " + failure)
+          Future.successful(BadRequest(Json.obj("message" -> failure)))
         },
         deviceRegistration => {
           errorWrapper(
@@ -68,5 +69,3 @@ object LivePushRegistrationController extends PushRegistrationController {
   override val accessControl = AccountAccessControlWithHeaderCheck
   override implicit val ec: ExecutionContext = ExecutionContext.global
 }
-
-

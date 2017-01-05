@@ -15,7 +15,24 @@ Find Push Registration records
     Example JSON response.
 
 ```json
-[{"token": "some-token",{"token":"another-token"}}]
+[
+  {
+    "token": "some-token1",
+    "device": {
+      "os": "android",
+      "version": "6.0",
+      "model": "some-device-a"
+    }
+  },
+  {
+    "token": "another-token",
+    "device": {
+      "os": "android",
+      "version": "7.0",
+      "model": "some-device-b"
+    }
+  }
+]
 ```
 
 *  **URL Params**
