@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 HM Revenue & Customs
+ * Copyright 2017 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.Authority
 import uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController
 import uk.gov.hmrc.pushregistration.controllers.action.AccountAccessControlWithHeaderCheck
-import uk.gov.hmrc.pushregistration.domain.PushRegistration
+import uk.gov.hmrc.pushregistration.domain.{NativeOS, Device, PushRegistration}
 import uk.gov.hmrc.pushregistration.repository.PushRegistrationPersist
 import uk.gov.hmrc.pushregistration.services.PushRegistrationService
 
@@ -40,8 +40,10 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
   override lazy val fakeApplication = FakeApplication(additionalConfiguration = config)
 
-  val registrationPersist = PushRegistrationPersist(BSONObjectID.generate, "token", "authId")
+  val device = Device(NativeOS.Android, "1.2.3", "Nexus 5")
+  val registrationPersist = PushRegistrationPersist(BSONObjectID.generate, "token", "authId", Some(device))
   val found = new TestFindRepository(Seq(registrationPersist))
+  val foundRegistration = PushRegistration("token", Some(device))
 
   class TestFindRepository(response:Seq[PushRegistrationPersist]) extends TestRepository {
     override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = Future.failed(new IllegalArgumentException("Not defined"))
@@ -102,19 +104,16 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
       val result: Result = await(controller.find("id")(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 200
-
-      contentAsJson(result) shouldBe Json.toJson(Seq(registration))
-
+      contentAsJson(result) shouldBe Json.toJson(Seq(foundRegistration))
       testPushRegistrationService.saveDetails shouldBe Map("authId" -> "id")
     }
+
     "find the record successfully with journeyId and return 200 success and Json" in new Success {
 
       val result: Result = await(controller.find("id", journeyId)(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 200
-
-      contentAsJson(result) shouldBe Json.toJson(Seq(registration))
-
+      contentAsJson(result) shouldBe Json.toJson(Seq(foundRegistration))
       testPushRegistrationService.saveDetails shouldBe Map("authId" -> "id")
     }
 

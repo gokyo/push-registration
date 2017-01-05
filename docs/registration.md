@@ -8,15 +8,32 @@ Register for Push Registration
 
 * **Method:**
 
+
+
   `POST`
 
-    Example JSON post payload for registration.
+    Example JSON POST payload for registration where device information is supplied. Please note the device information is optional. 
+
 
 ```json
 {
-  "token": "some-token"
+  "token": "some-token",
+  "device": {
+    "os": "android",
+    "version": "7.0",
+    "model": "Nexus 5"
+  }
 }
 ```
+
+The JSON structure is detailed below. 
+
+| *Attribute* | *Description* |
+|--------|----|
+| ```token``` | The notification token associated with the device. The maximum size of this attribute is 1024.|
+| ```device.os``` | The OS associated with the token. The valid values are ios, android or windows.  |
+| ```device.version``` | The version of the OS.  The maximum size of this attribute is 50. |
+| ```device.model``` | The model of the device.  The maximum size of this attribute is 100. |
 
 
 *  **URL Params**
@@ -24,9 +41,9 @@ Register for Push Registration
    **None:**
  
 * **Success Response:**
-  * **Code:** 200 <br />
+  * **Code:** 201 - created new record <br />
 
-  * **Code:** 201 <br />
+  * **Code:** 200 - Updated an existing record<br />
 
 * **Error Response:**
 

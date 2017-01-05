@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 HM Revenue & Customs
+ * Copyright 2017 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,10 +53,10 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
     }
   }
 
-
   override def find(id:String)(implicit hc: HeaderCarrier): Future[Seq[PushRegistration]] = {
     withAudit("find", Map("authId" -> id)) {
-      repository.findByAuthId(id).map { item => item.map(row => PushRegistration(row.token)) }
+      repository.findByAuthId(id).map { item => item.map(row => PushRegistration(row.token, row.device))
+      }
     }
   }
 }
@@ -67,7 +67,8 @@ object SandboxPushRegistrationService extends PushRegistrationService with FileR
     Future.successful(true)
   }
 
-  override def find(id:String)(implicit hc: HeaderCarrier): Future[Seq[PushRegistration]] = Future.successful(Seq(PushRegistration("token1"),PushRegistration("token2")))
+  override def find(id:String)(implicit hc: HeaderCarrier): Future[Seq[PushRegistration]] =
+    Future.successful(Seq(PushRegistration("token1", Some(Device(NativeOS.Android, "7.0", "Nexus 5"))), PushRegistration("token2", Some(Device(NativeOS.iOS, "1.4.5", "Apple 6")))))
 }
 
 object LivePushRegistrationService extends LivePushRegistrationService {

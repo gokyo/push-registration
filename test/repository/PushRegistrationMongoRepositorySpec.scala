@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 HM Revenue & Customs
+ * Copyright 2017 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import reactivemongo.bson.BSONObjectID
 import reactivemongo.core.errors.DatabaseException
 import uk.gov.hmrc.mongo.{DatabaseUpdate, MongoSpecSupport, Saved, Updated}
 import uk.gov.hmrc.play.test.UnitSpec
-import uk.gov.hmrc.pushregistration.domain.PushRegistration
+import uk.gov.hmrc.pushregistration.domain.{NativeOS, Device, PushRegistration}
 import uk.gov.hmrc.pushregistration.repository.{PushRegistrationPersist, PushRegistrationMongoRepository}
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -37,8 +37,23 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
   trait Setup {
     val authId = "some-auth-id"
-    val testToken = "token"
-    val registration = PushRegistration(testToken)
+    val testToken1 = "token-1"
+    val testToken2 = "token-2"
+    val testToken3 = "token-3"
+    val testToken4 = "token-4"
+    val deviceAndroid = Device(NativeOS.Android, "1.1", "nexus")
+    val deviceiOS = Device(NativeOS.iOS, "2.3", "apple")
+    val deviceWindows = Device(NativeOS.Windows, "3.3", "some-windows-device")
+    val registration = PushRegistration(testToken1, None)  // TODO...
+    val registrationWithDeviceAndroid = PushRegistration(testToken2, Some(deviceAndroid))
+    val registrationWithDeviceiOS = PushRegistration(testToken3, Some(deviceiOS))
+    val registrationWithDeviceWindows = PushRegistration(testToken4, Some(deviceWindows))
+    val items = Seq(
+        (registration, "auth-1"),
+        (registrationWithDeviceAndroid, "auth-2"),
+        (registrationWithDeviceiOS, "auth-3"),
+        (registrationWithDeviceWindows, "auth-4")
+    )
   }
 
   override protected def beforeEach(): Unit = {
@@ -49,78 +64,96 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
   "Validating index's " should {
 
-    "able to insert duplicate data entries for auth Id and Token" in new Setup {
+    "fail to insert duplicate records for same Token" in new Setup {
       val resp: DatabaseUpdate[PushRegistrationPersist] = await(repository.save(registration, authId))
 
       a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue))
-      await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate)))
-      await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate, authId = "another authId")))
+      a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate)))
+      a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate, authId = "another authId")))
+    }
+
+    "insert multiple records for the same auth Id with unique token" in new Setup {
+      val resp: DatabaseUpdate[PushRegistrationPersist] = await(repository.save(registrationWithDeviceAndroid, authId))
+
+      await(repository.save(registrationWithDeviceAndroid.copy(token = testToken2), authId))
+      await(repository.save(registrationWithDeviceAndroid.copy(token = testToken3), authId))
+
+      a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue))
+      a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate)))
     }
   }
 
   "repository" should {
 
-    "create a new record" in new Setup {
-      val result = await(repository.save(registration, authId))
-      result.updateType shouldBe an[Saved[_]]
-      result.updateType.savedValue.token shouldBe testToken
-      result.updateType.savedValue.authId shouldBe authId
+    "create multiple records if the token is different" in new Setup {
+
+      items.map( item => {
+        val result = await(repository.save(item._1, item._2))
+
+        result.updateType shouldBe an[Saved[_]]
+        result.updateType.savedValue.token shouldBe item._1.token
+        result.updateType.savedValue.authId shouldBe item._2
+        result.updateType.savedValue.device shouldBe item._1.device
+
+        val result2 = await(repository.save(item._1.copy(token = item._1.token + "another token"), item._2))
+        result2.updateType shouldBe an[Saved[_]]
+        result2.updateType.savedValue.token shouldBe item._1.token + "another token"
+        result2.updateType.savedValue.authId shouldBe item._2
+        result2.updateType.savedValue.device shouldBe item._1.device
+      })
     }
 
-    "create multiple records if the Token is different" in new Setup {
-      val result = await(repository.save(registration, authId))
+    "insert multiple unique tokens for an authId and update when tokens already exist" in new Setup {
 
-      result.updateType shouldBe an[Saved[_]]
-      result.updateType.savedValue.token shouldBe testToken
-      result.updateType.savedValue.authId shouldBe authId
+      items.foreach( item => {
+        val result = await(repository.save(item._1, item._2))
 
-      val result2 = await(repository.save(registration.copy(token = "another token"), authId))
-      result2.updateType shouldBe an[Saved[_]]
-      result2.updateType.savedValue.token shouldBe "another token"
-      result2.updateType.savedValue.authId shouldBe authId
+        result.updateType shouldBe an[Saved[_]]
+        result.updateType.savedValue.token shouldBe item._1.token
+        result.updateType.savedValue.authId shouldBe item._2
+
+        val result1 = await(repository.save(item._1.copy(token = item._1.token + "another token"), item._2))
+        result1.updateType shouldBe an[Saved[_]]
+        val result2 =await(repository.save(item._1.copy(token = item._1.token + "yet another token"), item._2))
+        result2.updateType shouldBe an[Saved[_]]
+        val result3 =await(repository.save(item._1.copy(token = item._1.token + "yet another token"), item._2))
+        result3.updateType shouldBe an[Updated[_]]
+
+        val findResult = await(repository.findByAuthId(item._2))
+        findResult.size shouldBe 3
+
+        findResult(2).token shouldBe item._1.token
+        findResult(2).authId shouldBe item._2
+        findResult(2).device shouldBe item._1.device
+
+        findResult(1).token shouldBe item._1.token + "another token"
+        findResult(1).authId shouldBe item._2
+        findResult(1).device shouldBe item._1.device
+
+        findResult(0).token shouldBe item._1.token + "yet another token"
+        findResult(0).authId shouldBe item._2
+        findResult(0).device shouldBe item._1.device
+      })
     }
 
     "find an existing record" in new Setup {
-      val result = await(repository.save(registration, authId))
+      val result = await(repository.save(registrationWithDeviceAndroid, authId))
 
       result.updateType shouldBe an[Saved[_]]
-      result.updateType.savedValue.token shouldBe testToken
+      result.updateType.savedValue.token shouldBe testToken2
       result.updateType.savedValue.authId shouldBe authId
 
       val findResult: Seq[PushRegistrationPersist] = await(repository.findByAuthId(authId))
-      findResult.head.token shouldBe testToken
+      findResult.head.token shouldBe testToken2
       findResult.head.authId shouldBe authId
+      findResult.head.device shouldBe Some(deviceAndroid)
     }
 
-    "insert multiple unique tokens for an authId and ignore duplicate tokens" in new Setup {
-      val result = await(repository.save(registration, authId))
-
-      result.updateType shouldBe an[Saved[_]]
-      result.updateType.savedValue.token shouldBe testToken
-      result.updateType.savedValue.authId shouldBe authId
-
-      await(repository.save(registration.copy(token = "another token"), authId))
-      await(repository.save(registration.copy(token = "yet another token"), authId))
-      await(repository.save(registration.copy(token = "yet another token"), authId))
-
-      val findResult = await(repository.findByAuthId(authId))
-      findResult.size shouldBe 3
-
-      findResult(2).token shouldBe testToken
-      findResult(2).authId shouldBe authId
-      findResult(1).token shouldBe "another token"
-      findResult(1).authId shouldBe authId
-      findResult(0).token shouldBe "yet another token"
-      findResult(0).authId shouldBe authId
-
-    }
-
-    "not find an existing record" in new Setup {
+    "return no records when an unknown authId is supplied" in new Setup {
       val result = await(repository.save(registration, authId))
 
       val findResult = await(repository.findByAuthId("unknown"))
       findResult shouldBe List.empty
     }
-
   }
 }
