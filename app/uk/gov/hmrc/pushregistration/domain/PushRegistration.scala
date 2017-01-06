@@ -79,20 +79,22 @@ object OS {
   }
 }
 
-case class Device(os:NativeOS, version:String, model:String)
+case class Device(os:NativeOS, osVersion:String, appVersion:String, model:String)
 
 object Device {
 
   implicit val reads: Reads[Device] = (
       (JsPath \ "os").read[NativeOS] and
-      (JsPath \ "version").read[String](maxLength[String](50)) and
+      (JsPath \ "osVersion").read[String](maxLength[String](50)) and
+      (JsPath \ "appVersion").read[String](maxLength[String](50)) and
       (JsPath \ "model").read[String](maxLength[String](100))
     )(Device.apply _)
 
   implicit val writes = new Writes[Device] {
     def writes(device: Device) = Json.obj(
         "os" -> device.os,
-        "version" -> device.version,
+        "osVersion" -> device.osVersion,
+        "appVersion" -> device.appVersion,
         "model" -> device.model
       )
   }

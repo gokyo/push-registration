@@ -41,10 +41,10 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
     val testToken2 = "token-2"
     val testToken3 = "token-3"
     val testToken4 = "token-4"
-    val deviceAndroid = Device(NativeOS.Android, "1.1", "nexus")
-    val deviceiOS = Device(NativeOS.iOS, "2.3", "apple")
-    val deviceWindows = Device(NativeOS.Windows, "3.3", "some-windows-device")
-    val registration = PushRegistration(testToken1, None)  // TODO...
+    val deviceAndroid = Device(NativeOS.Android, "7.0", "1.1", "nexus")
+    val deviceiOS = Device(NativeOS.iOS, "2.3", "1.2", "apple")
+    val deviceWindows = Device(NativeOS.Windows, "3.3", "1.2", "some-windows-device")
+    val registration = PushRegistration(testToken1, None)
     val registrationWithDeviceAndroid = PushRegistration(testToken2, Some(deviceAndroid))
     val registrationWithDeviceiOS = PushRegistration(testToken3, Some(deviceiOS))
     val registrationWithDeviceWindows = PushRegistration(testToken4, Some(deviceWindows))

@@ -20,7 +20,8 @@ Find Push Registration records
     "token": "some-token1",
     "device": {
       "os": "android",
-      "version": "6.0",
+      "osVersion": "6.0",
+      "appVersion": "1.2",
       "model": "some-device-a"
     }
   },
@@ -28,7 +29,8 @@ Find Push Registration records
     "token": "another-token",
     "device": {
       "os": "android",
-      "version": "7.0",
+      "osVersion": "7.0",
+      "appVersion": "1.2",
       "model": "some-device-b"
     }
   }

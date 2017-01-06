@@ -60,7 +60,6 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
         testPushRegistrationService.saveDetails shouldBe buildAuditCheck(testId)
       }
 
-// TODO...VERIFY JSON FOR OTHER RESPONSES!!!
       "Return 500 result when exception is thrown from repository" in new DbaseFailure {
 
         val result: Result = await(controller.register(journeyId)(getRequest(testId)))
@@ -73,6 +72,7 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
 
         status(result) shouldBe 401
         testRepository.savedRegistration shouldBe None
+        jsonBodyOf(result) shouldBe Json.parse("""{"code":"UNAUTHORIZED","message":"Bearer token is missing or not authorized"}""")
       }
 
       "Return 403 result when authority has low CL" in new AuthLowCL {
@@ -80,6 +80,7 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
 
         status(result) shouldBe 403
         testRepository.savedRegistration shouldBe None
+        jsonBodyOf(result) shouldBe Json.parse("""{"code":"UNAUTHORIZED","message":"Access denied!"}""")
       }
     }
   })
@@ -104,7 +105,8 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
 
       val toTest = Seq(
         PushRegistration(buildString(1024+1), Some(device)),
-        PushRegistration("token1", Some(device.copy(version = buildString(50+1)))),
+        PushRegistration("token1", Some(device.copy(osVersion = buildString(50+1)))),
+        PushRegistration("token1", Some(device.copy(appVersion = buildString(50+1)))),
         PushRegistration("token2", Some(device.copy(model = buildString(100+1))))
       )
 
@@ -119,6 +121,8 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
       val result: Result = await(controller.register()(jsonRegistrationRequestNoAcceptHeader))
 
       status(result) shouldBe 406
+      jsonBodyOf(result) shouldBe Json.parse("""{"code":"ACCEPT_HEADER_INVALID","message":"The accept header is missing or invalid"}""")
+
     }
   }
 

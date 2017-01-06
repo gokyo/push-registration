@@ -38,7 +38,8 @@ object DeviceStore {
 
   implicit val reads: Reads[Device] = (
     (JsPath \ "os").read[NativeOS](NativeOS.readsFromStore) and
-    (JsPath \ "version").read[String] and
+    (JsPath \ "osVersion").read[String] and
+    (JsPath \ "appVersion").read[String] and
     (JsPath \ "model").read[String]
   )(Device.apply _)
 
@@ -77,6 +78,8 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
         collection.indexesManager.ensure(
           Index(Seq("device.os" -> IndexType.Ascending), name = Some("osNotUnique"), unique = false, sparse = true)),
         collection.indexesManager.ensure(
+          Index(Seq("device.appVersion" -> IndexType.Ascending), name = Some("appVersionNotUnique"), unique = false, sparse = true)),
+        collection.indexesManager.ensure(
           Index(Seq("device.model" -> IndexType.Ascending), name = Some("modelNotUnique"), unique = false, sparse = true))
       )
     )
@@ -98,7 +101,8 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     val deviceFields = registration.device.fold(BSONDocument.empty) { device =>
       BSONDocument(
         "$set" -> BSONDocument("device.os" -> OS.getId(device.os)),
-        "$set" -> BSONDocument("device.version" -> device.version),
+        "$set" -> BSONDocument("device.osVersion" -> device.osVersion),
+        "$set" -> BSONDocument("device.appVersion" -> device.appVersion),
         "$set" -> BSONDocument("device.model" -> device.model)
       )
     }

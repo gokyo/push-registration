@@ -20,7 +20,8 @@ Register for Push Registration
   "token": "some-token",
   "device": {
     "os": "android",
-    "version": "7.0",
+    "osVersion": "7.0",
+    "appVersion": "1.0",
     "model": "Nexus 5"
   }
 }
@@ -32,7 +33,8 @@ The JSON structure is detailed below.
 |--------|----|
 | ```token``` | The notification token associated with the device. The maximum size of this attribute is 1024.|
 | ```device.os``` | The OS associated with the token. The valid values are ios, android or windows.  |
-| ```device.version``` | The version of the OS.  The maximum size of this attribute is 50. |
+| ```device.osVersion``` | The version of the OS.  The maximum size of this attribute is 50. |
+| ```device.appVersion``` | The version of the HMRC mobile application.  The maximum size of this attribute is 50. |
 | ```device.model``` | The model of the device.  The maximum size of this attribute is 100. |
 
 

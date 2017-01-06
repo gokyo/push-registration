@@ -40,7 +40,7 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
   override lazy val fakeApplication = FakeApplication(additionalConfiguration = config)
 
-  val device = Device(NativeOS.Android, "1.2.3", "Nexus 5")
+  val device = Device(NativeOS.Android, "1.2.3", "1.3", "Nexus 5")
   val registrationPersist = PushRegistrationPersist(BSONObjectID.generate, "token", "authId", Some(device))
   val found = new TestFindRepository(Seq(registrationPersist))
   val foundRegistration = PushRegistration("token", Some(device))

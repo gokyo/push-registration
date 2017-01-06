@@ -36,22 +36,22 @@ class JsonTestSpec extends UnitSpec with WithFakeApplication with ScalaFutures w
     "JSON serialization/deserialize" should {
 
       s"Successfully serialize/deserialize PushRegistration for OS range $item" in {
-        val pushRegObj = PushRegistration("token", Some(Device(item.nativeOS, "1.1", "some-device")))
+        val pushRegObj = PushRegistration("token", Some(Device(item.nativeOS, "1.2", "1.1","some-device")))
 
-        Json.toJson(pushRegObj) shouldBe Json.parse(s"""{"token":"token","device":{"os":"${item.nativeOS}","version":"1.1","model":"some-device"}}""")
+        Json.toJson(pushRegObj) shouldBe Json.parse(s"""{"token":"token","device":{"os":"${item.nativeOS}","osVersion":"1.2","appVersion":"1.1","model":"some-device"}}""")
       }
 
       s"Successfully serialize/deserialize Device for OS range $item" in {
-        val deviceJson = s"""{"os":${item.id},"version":"1.1","model":"some-device"}"""
+        val deviceJson = s"""{"os":${item.id},"osVersion":"1.1","appVersion":"1.3","model":"some-device"}"""
 
         val deviceJsValue = Json.parse(deviceJson).as[Device](DeviceStore.formats)
-        deviceJsValue shouldBe Device(item.nativeOS, "1.1", "some-device")
+        deviceJsValue shouldBe Device(item.nativeOS, "1.1", "1.3", "some-device")
 
 
-        val deviceJson1 = s"""{"os":"${item.nativeOS}","version":"1.1","model":"some-device"}"""
+        val deviceJson1 = s"""{"os":"${item.nativeOS}","osVersion":"0.1","appVersion":"1.1","model":"some-device"}"""
 
         val deviceJsValue1 = Json.parse(deviceJson1).as[Device]
-        deviceJsValue1 shouldBe Device(item.nativeOS, "1.1", "some-device")
+        deviceJsValue1 shouldBe Device(item.nativeOS, "0.1", "1.1", "some-device")
       }
     }
   }}
@@ -60,7 +60,7 @@ class JsonTestSpec extends UnitSpec with WithFakeApplication with ScalaFutures w
 
     s"fail to create PushRegistration when OS is unknown" in {
 
-      a[Exception] should be thrownBy Json.parse( s"""{"token":"token","device":{"os":"unknown","version":"1.1","model":"some-device"}}""").asOpt[PushRegistration]
+      a[Exception] should be thrownBy Json.parse( s"""{"token":"token","device":{"os":"unknown","osVersion":"0.1","appVersion":"1.1","model":"some-device"}}""").asOpt[PushRegistration]
     }
   }
 }

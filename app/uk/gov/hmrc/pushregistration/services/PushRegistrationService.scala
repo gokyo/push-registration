@@ -68,7 +68,7 @@ object SandboxPushRegistrationService extends PushRegistrationService with FileR
   }
 
   override def find(id:String)(implicit hc: HeaderCarrier): Future[Seq[PushRegistration]] =
-    Future.successful(Seq(PushRegistration("token1", Some(Device(NativeOS.Android, "7.0", "Nexus 5"))), PushRegistration("token2", Some(Device(NativeOS.iOS, "1.4.5", "Apple 6")))))
+    Future.successful(Seq(PushRegistration("token1", Some(Device(NativeOS.Android, "7.0", "1.2", "Nexus 5"))), PushRegistration("token2", Some(Device(NativeOS.iOS, "1.4.5", "1.3", "Apple 6")))))
 }
 
 object LivePushRegistrationService extends LivePushRegistrationService {

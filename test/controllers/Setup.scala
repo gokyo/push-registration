@@ -88,7 +88,7 @@ trait Setup {
   val acceptHeader = "Accept" -> "application/vnd.hmrc.1.0+json"
   val emptyRequest = FakeRequest()
 
-  lazy val device = Device(NativeOS.Android, "1.2", "samsung")
+  lazy val device = Device(NativeOS.Android, "1.2", "1.3", "samsung")
 
   lazy val  registration = PushRegistration("token-a", None)
   lazy val registrationWithDevice = PushRegistration("token-b", Some(device))
