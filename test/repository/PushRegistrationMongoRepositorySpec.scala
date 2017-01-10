@@ -64,22 +64,12 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
   "Validating index's " should {
 
-    "fail to insert duplicate records for same Token" in new Setup {
+    "able to insert duplicate data entries for auth Id and Token" in new Setup {
       val resp: DatabaseUpdate[PushRegistrationPersist] = await(repository.save(registration, authId))
 
       a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue))
-      a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate)))
-      a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate, authId = "another authId")))
-    }
-
-    "insert multiple records for the same auth Id with unique token" in new Setup {
-      val resp: DatabaseUpdate[PushRegistrationPersist] = await(repository.save(registrationWithDeviceAndroid, authId))
-
-      await(repository.save(registrationWithDeviceAndroid.copy(token = testToken2), authId))
-      await(repository.save(registrationWithDeviceAndroid.copy(token = testToken3), authId))
-
-      a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue))
-      a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate)))
+      await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate)))
+      await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate, authId = "another authId")))
     }
   }
 
@@ -130,9 +120,9 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
         findResult(1).authId shouldBe item._2
         findResult(1).device shouldBe item._1.device
 
-        findResult(0).token shouldBe item._1.token + "yet another token"
-        findResult(0).authId shouldBe item._2
-        findResult(0).device shouldBe item._1.device
+        findResult.head.token shouldBe item._1.token + "yet another token"
+        findResult.head.authId shouldBe item._2
+        findResult.head.device shouldBe item._1.device
       })
     }
 
