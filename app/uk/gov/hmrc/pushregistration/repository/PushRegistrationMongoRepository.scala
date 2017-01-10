@@ -70,7 +70,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     Future.sequence(
       Seq(
         collection.indexesManager.ensure(
-          Index(Seq("token" -> IndexType.Ascending), name = Some("tokenIdUnique"), unique = true)),
+          Index(Seq("token" -> IndexType.Ascending), name = Some("tokenIdUnique"), unique = false)),
         collection.indexesManager.ensure(
           Index(Seq("updated" -> IndexType.Ascending), name = Some("updatedNotUnique"), unique = false)),
         collection.indexesManager.ensure(
