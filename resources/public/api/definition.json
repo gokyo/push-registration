@@ -14,37 +14,7 @@
     "versions":[
       {
         "version":"1.0",
-        "status":"PUBLISHED",
-        "endpoints":[
-          {
-            "uriPattern":"/push/registration",
-            "endpointName":"Registration",
-            "method":"POST",
-            "authType":"USER",
-            "throttlingTier":"UNLIMITED",
-            "scope":"write:push-registration",
-            "queryParameters": [
-              {
-                "name": "journeyId",
-                "required": false
-              }
-            ]
-          },
-          {
-            "uriPattern":"/push/registration/{id}",
-            "endpointName":"Retrieve",
-            "method":"GET",
-            "authType":"USER",
-            "throttlingTier":"UNLIMITED",
-            "scope":"write:push-registration",
-            "queryParameters": [
-              {
-                "name": "journeyId",
-                "required": false
-              }
-            ]
-          }
-        ]
+        "status":"PUBLISHED"
       }
     ]
   }

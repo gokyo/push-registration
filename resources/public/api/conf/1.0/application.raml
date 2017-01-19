@@ -1,0 +1,58 @@
+#%RAML 1.0
+---
+
+title: Push Registration
+version: 1.0
+protocols: [ HTTPS ]
+baseUri: https://api.service.hmrc.gov.uk/
+
+documentation:
+ - title: Overview
+   content: !include docs/overview.md
+ - title: Versioning
+   content: !include http://api-documentation-raml-frontend.service/api-documentation/assets/common/docs/versioning.md
+ - title: Errors
+   content: !include http://api-documentation-raml-frontend.service/api-documentation/assets/common/docs/errors.md
+
+mediaType: [ application/json, application/hal+json ]
+
+uses:
+  sec: http://api-documentation-raml-frontend.service/api-documentation/assets/common/modules/securitySchemes.raml
+  headers: http://api-documentation-raml-frontend.service/api-documentation/assets/common/modules/headers.raml
+  annotations: http://api-documentation-raml-frontend.service/api-documentation/assets/common/modules/annotations.raml
+  types: http://api-documentation-raml-frontend.service/api-documentation/assets/common/modules/types.raml
+
+/push-registration:
+  /push:
+    /registration:
+      post:
+        displayName: Registration
+        description: This endpoint registers for push registration.
+        is: [headers.acceptHeader]
+        (annotations.scope): "write:push-registration"
+        securedBy: [ sec.oauth_2_0: { scopes: [ "write:push-registration" ] } ]
+        queryParameters:
+          journeyId:
+            type: string
+            required: false
+        responses:
+          200:
+          201:
+      /{id}:
+        uriParameters:
+          id:
+            type: string
+        get:
+          displayName: Retrieve
+          description: This endpoint retrieves the registered data.
+          is: [headers.acceptHeader]
+          (annotations.scope): "write:push-registration"
+          securedBy: [ sec.oauth_2_0: { scopes: [ "write:push-registration" ] } ]
+          queryParameters:
+            journeyId:
+              type: string
+              required: false
+          responses:
+            200:
+            201:
+
