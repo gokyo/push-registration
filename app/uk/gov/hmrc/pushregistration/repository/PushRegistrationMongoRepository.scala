@@ -22,6 +22,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.modules.reactivemongo.MongoDbConnection
+import reactivemongo.api.commands.WriteResult
 import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.api.{DB, ReadPreference}
 import reactivemongo.bson._
@@ -149,6 +150,10 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     )
   }
 
+  def removeToken(token: String): Future[WriteResult] = {
+    collection.remove(BSONDocument("token" -> token), firstMatchOnly = true)
+  }
+
   override def save(registration: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
     atomicUpsert(findByTokenAndAuthId(registration.token, authId), modifierForInsert(registration, authId))
   }
@@ -158,4 +163,8 @@ trait PushRegistrationRepository {
   def save(expectation: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]]
 
   def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]]
+
+  def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]]
+
+  def removeToken(token: String): Future[WriteResult]
 }

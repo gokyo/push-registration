@@ -18,6 +18,7 @@ package repository
 
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
+import reactivemongo.api.commands.WriteResult
 import reactivemongo.bson.BSONObjectID
 import reactivemongo.core.errors.DatabaseException
 import uk.gov.hmrc.mongo.{DatabaseUpdate, MongoSpecSupport, Saved, Updated}
@@ -220,5 +221,21 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
     // TODO: implement limits
     // "return only max-limit tokens when there are more than max-limit tokens that do not have associated endpoints"
+
+    "remove tokens" in new Setup {
+      await {
+        repository.save(registrationWithDeviceAndroid, "auth-a")
+        repository.save(registrationWithDeviceiOS, "auth-b")
+        repository.save(registrationWithDeviceWindows, "auth-c")
+      }
+
+      val result: WriteResult = await(repository.removeToken(registrationWithDeviceAndroid.token))
+
+      result.inError shouldBe false
+
+      val remaining: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations())
+
+      remaining.size shouldBe 2
+    }
   }
 }
