@@ -18,7 +18,6 @@ package repository
 
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
-import reactivemongo.api.commands.WriteResult
 import reactivemongo.bson.BSONObjectID
 import reactivemongo.core.errors.DatabaseException
 import uk.gov.hmrc.mongo.{DatabaseUpdate, MongoSpecSupport, Saved, Updated}
@@ -154,11 +153,11 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
         repository.save(registrationWithDeviceiOS, "auth-b")
       }
 
-      val updatedOk = await(repository.saveEndpoint(registrationWithDeviceAndroid.token, "/endpoint/b"))
-      val updateNotFound = await(repository.saveEndpoint(registrationWithDeviceWindows.token, "/endpoint/c"))
+      val updatedOk: Boolean = await(repository.saveEndpoint(registrationWithDeviceAndroid.token, "/endpoint/b"))
+      val updateNotFound: Boolean = await(repository.saveEndpoint(registrationWithDeviceWindows.token, "/endpoint/c"))
 
-      updatedOk.isDefined shouldBe true
-      updateNotFound.isDefined shouldBe false
+      updatedOk shouldBe true
+      updateNotFound shouldBe false
     }
 
     "find a batch of tokens that do not have associated endpoints" in new Setup {
@@ -229,9 +228,9 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
         repository.save(registrationWithDeviceWindows, "auth-c")
       }
 
-      val result: WriteResult = await(repository.removeToken(registrationWithDeviceAndroid.token))
+      val result: Boolean = await(repository.removeToken(registrationWithDeviceAndroid.token))
 
-      result.inError shouldBe false
+      result shouldBe true
 
       val remaining: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations())
 

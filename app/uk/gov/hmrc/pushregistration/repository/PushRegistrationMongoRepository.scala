@@ -113,7 +113,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     tokenAndDate ++ deviceFields
   }
 
-  def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = {
+  override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = {
     collection.
       find(Json.obj("authId" -> Json.toJson(authId))).
       sort(Json.obj("updated" -> JsNumber(-1))).
@@ -121,7 +121,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
       collect[Seq]()
   }
 
-  def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]] = {
+  override def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]] = {
     val batchId = s"_RESOLVING_${UUID.randomUUID().toString}_"
 
     val result = collection.update(
@@ -143,15 +143,19 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     }
   }
 
-  def saveEndpoint(token: String, endpoint: String): Future[Option[DatabaseUpdate[PushRegistrationPersist]]] = {
+  override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = {
     atomicUpdate(
       BSONDocument("token" -> token),
       BSONDocument("$set" -> BSONDocument("endpoint" -> endpoint))
+    ).map(
+      _.exists(!_.writeResult.inError)
     )
   }
 
-  def removeToken(token: String): Future[WriteResult] = {
-    collection.remove(BSONDocument("token" -> token), firstMatchOnly = true)
+  override def removeToken(token: String): Future[Boolean] = {
+    collection.remove(
+      BSONDocument("token" -> token), firstMatchOnly = true
+    ).map(!_.inError)
   }
 
   override def save(registration: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
@@ -166,5 +170,7 @@ trait PushRegistrationRepository {
 
   def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]]
 
-  def removeToken(token: String): Future[WriteResult]
+  def saveEndpoint(token: String, endpoint: String): Future[Boolean]
+
+  def removeToken(token: String): Future[Boolean]
 }
