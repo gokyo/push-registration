@@ -2,3 +2,7 @@
 POST    /push/registration          uk.gov.hmrc.pushregistration.controllers.LivePushRegistrationController.register(journeyId: Option[String])
 
 GET     /push/registration/:id      uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController.find(id:String, journeyId: Option[String])
+
+GET     /push/registration      uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController.findIncompleteRegistrations()
+
+POST    /push/endpoint          uk.gov.hmrc.pushregistration.controllers.EndpointController.registerEndpoints()
