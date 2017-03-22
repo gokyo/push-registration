@@ -16,7 +16,8 @@
 
 package uk.gov.hmrc.pushregistration.controllers
 
-import play.api.libs.json.Json
+import play.api.libs.json._
+import play.api.mvc.Action
 import uk.gov.hmrc.api.controllers.HeaderValidator
 import uk.gov.hmrc.play.http.HeaderCarrier
 import uk.gov.hmrc.play.microservice.controller.BaseController
@@ -29,11 +30,19 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
   val service: PushRegistrationService
   val accessControl: AccountAccessControlWithHeaderCheck
 
-  def find(id:String, journeyId: Option[String] = None) = accessControl.validateAccept(acceptHeaderValidationRules).async {
+  def find(id: String, journeyId: Option[String] = None) = accessControl.validateAccept(acceptHeaderValidationRules).async {
     implicit request =>
       implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
       errorWrapper(service.find(id).map { response => if (response.isEmpty) NotFound else Ok(Json.toJson(response)) })
-    }
+  }
+
+  def findIncompleteRegistrations() = Action.async {
+    _ =>
+      service.findIncompleteRegistrations().map {
+        response =>
+          if (response.isEmpty) NotFound else Ok(Json.toJson(response))
+      }
+  }
 }
 
 object FindPushRegistrationController extends FindPushRegistrationController {

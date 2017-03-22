@@ -16,32 +16,35 @@
 
 package uk.gov.hmrc.pushregistration.repository
 
+import java.util.UUID
+
+import play.api.libs.functional.syntax._
+import play.api.libs.json.Reads._
+import play.api.libs.json._
 import play.modules.reactivemongo.MongoDbConnection
-import reactivemongo.api.{ReadPreference, DB}
+import reactivemongo.api.commands.WriteResult
 import reactivemongo.api.indexes.{Index, IndexType}
+import reactivemongo.api.{DB, ReadPreference}
 import reactivemongo.bson._
 import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
 import uk.gov.hmrc.mongo.{AtomicUpdate, BSONBuilderHelpers, DatabaseUpdate, ReactiveRepository}
-import uk.gov.hmrc.pushregistration.domain.{NativeOS, OS, Device, PushRegistration}
+import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, OS, PushRegistration}
 import uk.gov.hmrc.time.DateTimeUtils
-import play.api.libs.json._
-import play.api.libs.json.Reads._
-import play.api.libs.functional.syntax._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 
 
-case class PushRegistrationPersist(id: BSONObjectID, token:String, authId:String, device:Option[Device])
+case class PushRegistrationPersist(id: BSONObjectID, token: String, authId: String, device: Option[Device])
 
 object DeviceStore {
 
   implicit val reads: Reads[Device] = (
     (JsPath \ "os").read[NativeOS](NativeOS.readsFromStore) and
-    (JsPath \ "osVersion").read[String] and
-    (JsPath \ "appVersion").read[String] and
-    (JsPath \ "model").read[String]
-  )(Device.apply _)
+      (JsPath \ "osVersion").read[String] and
+      (JsPath \ "appVersion").read[String] and
+      (JsPath \ "model").read[String]
+    ) (Device.apply _)
 
   val formats = Format(reads, Device.writes)
 }
@@ -57,14 +60,15 @@ object PushRegistrationPersist {
 
 object PushRegistrationRepository extends MongoDbConnection {
   lazy val mongo = new PushRegistrationMongoRepository
+
   def apply(): PushRegistrationRepository = mongo
 }
 
 class PushRegistrationMongoRepository(implicit mongo: () => DB)
   extends ReactiveRepository[PushRegistrationPersist, BSONObjectID]("registration", mongo, PushRegistrationPersist.mongoFormats, ReactiveMongoFormats.objectIdFormats)
-          with AtomicUpdate[PushRegistrationPersist]
-          with PushRegistrationRepository
-          with BSONBuilderHelpers {
+    with AtomicUpdate[PushRegistrationPersist]
+    with PushRegistrationRepository
+    with BSONBuilderHelpers {
 
   override def ensureIndexes(implicit ec: ExecutionContext): Future[scala.Seq[Boolean]] = {
     Future.sequence(
@@ -88,7 +92,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   override def isInsertion(suppliedId: BSONObjectID, returned: PushRegistrationPersist): Boolean =
     suppliedId.equals(returned.id)
 
-  protected def findByTokenAndAuthId(token: String, authId:String) = BSONDocument("token" -> BSONString(token), "authId" -> authId)
+  protected def findByTokenAndAuthId(token: String, authId: String) = BSONDocument("token" -> BSONString(token), "authId" -> authId)
 
   private def modifierForInsert(registration: PushRegistration, authId: String): BSONDocument = {
     val tokenAndDate = BSONDocument(
@@ -109,7 +113,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     tokenAndDate ++ deviceFields
   }
 
-  def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = {
+  override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = {
     collection.
       find(Json.obj("authId" -> Json.toJson(authId))).
       sort(Json.obj("updated" -> JsNumber(-1))).
@@ -117,12 +121,56 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
       collect[Seq]()
   }
 
-  override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
+  override def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]] = {
+    val batchId = s"_RESOLVING_${UUID.randomUUID().toString}_"
+
+    val result = collection.update(
+      BSONDocument("$and" -> BSONArray(
+        BSONDocument("endpoint" -> BSONDocument("$exists" -> false)),
+        BSONDocument("device.os" -> BSONDocument("$exists" -> true))
+      )),
+      BSONDocument("$set" -> BSONDocument("endpoint" -> batchId)),
+      upsert = false,
+      multi = true
+    )
+
+    result.flatMap { _ =>
+      collection.
+        find(BSONDocument("endpoint" -> batchId)).
+        sort(Json.obj("updated" -> JsNumber(-1))).
+        cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
+        collect[Seq]()
+    }
+  }
+
+  override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = {
+    atomicUpdate(
+      BSONDocument("token" -> token),
+      BSONDocument("$set" -> BSONDocument("endpoint" -> endpoint))
+    ).map(
+      _.exists(!_.writeResult.inError)
+    )
+  }
+
+  override def removeToken(token: String): Future[Boolean] = {
+    collection.remove(
+      BSONDocument("token" -> token), firstMatchOnly = true
+    ).map(!_.inError)
+  }
+
+  override def save(registration: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
     atomicUpsert(findByTokenAndAuthId(registration.token, authId), modifierForInsert(registration, authId))
   }
 }
 
 trait PushRegistrationRepository {
-  def save(expectation: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]]
+  def save(expectation: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]]
+
   def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]]
+
+  def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]]
+
+  def saveEndpoint(token: String, endpoint: String): Future[Boolean]
+
+  def removeToken(token: String): Future[Boolean]
 }

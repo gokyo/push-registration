@@ -49,6 +49,8 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
     override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = Future.failed(new IllegalArgumentException("Not defined"))
 
     override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
+
+    override def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
   }
 
   trait Success extends Setup {
@@ -128,4 +130,21 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
   }
 
+  "findIncompleteRegistrations PushNotificationController" should {
+
+    "find unregistered tokens and return 200 success and Json" in new Success {
+      val result: Result = await(controller.findIncompleteRegistrations()(emptyRequestWithAcceptHeader))
+
+      status(result) shouldBe 200
+      contentAsJson(result) shouldBe Json.toJson(Seq(foundRegistration))
+
+    }
+
+    "return 404 not found when there are no unregistered tokens" in new NotFoundResult {
+      val result: Result = await(controller.findIncompleteRegistrations()(emptyRequestWithAcceptHeader))
+
+      status(result) shouldBe 404
+
+    }
+  }
 }

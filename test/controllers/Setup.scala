@@ -22,7 +22,6 @@ import play.api.libs.json.{JsValue, Json}
 import play.api.test.FakeRequest
 import play.api.test.Helpers._
 import reactivemongo.bson.BSONObjectID
-import reactivemongo.core.commands.LastError
 import uk.gov.hmrc.domain.Nino
 import uk.gov.hmrc.mongo.{DatabaseUpdate, Saved, Updated}
 import uk.gov.hmrc.play.audit.http.connector.{AuditConnector, AuditResult}
@@ -32,7 +31,7 @@ import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.{AuthConnector, Authority}
 import uk.gov.hmrc.pushregistration.controllers.PushRegistrationController
 import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControl, AccountAccessControlCheckAccessOff, AccountAccessControlWithHeaderCheck}
-import uk.gov.hmrc.pushregistration.domain.{NativeOS, Device, PushRegistration}
+import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, PushRegistration}
 import uk.gov.hmrc.pushregistration.repository.{PushRegistrationPersist, PushRegistrationRepository}
 import uk.gov.hmrc.pushregistration.services.{LivePushRegistrationService, PushRegistrationService, SandboxPushRegistrationService}
 
@@ -56,7 +55,13 @@ class TestRepository extends PushRegistrationRepository {
     Future.successful(DatabaseUpdate(null, Saved(PushRegistrationPersist(BSONObjectID.generate, registration.token, authId, registration.device))))
   }
 
-  override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = throw new Exception("Not used")
+  override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = ???
+
+  override def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]] = ???
+
+  override def removeToken(token: String): Future[Boolean] = ???
+
+  override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = ???
 }
 
 class TestPushRegistrationService(testAuthConnector:TestAuthConnector, testRepository:TestRepository, testAuditConnector: AuditConnector) extends LivePushRegistrationService {
@@ -92,8 +97,10 @@ trait Setup {
 
   lazy val  registration = PushRegistration("token-a", None)
   lazy val registrationWithDevice = PushRegistration("token-b", Some(device))
+  lazy val tokenToEndpointMap = Map("token-a" -> Some("/end/point"), "token-b" -> None)
   lazy val registrationJsonBody: JsValue = Json.toJson(registration)
   lazy val registrationWithDeviceJsonBody: JsValue = Json.toJson(registrationWithDevice)
+  lazy val tokenToEndpointMapJsonBody: JsValue = Json.toJson(tokenToEndpointMap)
 
   def fakeRequest(body:JsValue) = FakeRequest(POST, "url").withBody(body)
     .withHeaders("Content-Type" -> "application/json")
@@ -105,6 +112,8 @@ trait Setup {
 
   lazy val jsonRegistrationRequestTokenOnly = fakeRequest(registrationJsonBody).withHeaders(acceptHeader)
   lazy val jsonRegistrationRequestTokenAndDevice = fakeRequest(registrationWithDeviceJsonBody).withHeaders(acceptHeader)
+
+  lazy val endpointRequest = fakeRequest(tokenToEndpointMapJsonBody).withHeaders(acceptHeader)
 
   def getRequest(id:Int) = if (id==1) jsonRegistrationRequestTokenOnly else jsonRegistrationRequestTokenAndDevice
   def getRegistration(id:Int) = if (id==1) registration else registrationWithDevice
