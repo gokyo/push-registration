@@ -18,19 +18,22 @@ package uk.gov.hmrc.pushregistration.connectors
 
 import play.api.Play
 import play.api.libs.json.JsValue
+import uk.gov.hmrc.domain.Nino
+import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
 import uk.gov.hmrc.play.config.ServicesConfig
 import uk.gov.hmrc.play.http.{ForbiddenException, HeaderCarrier, HttpGet}
 import uk.gov.hmrc.pushregistration.config.WSHttp
-import uk.gov.hmrc.domain.Nino
-import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
 
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class NinoNotFoundOnAccount(message:String) extends uk.gov.hmrc.play.http.HttpException(message, 401)
-class AccountWithLowCL(message:String) extends uk.gov.hmrc.play.http.HttpException(message, 401)
+class NinoNotFoundOnAccount(message: String) extends uk.gov.hmrc.play.http.HttpException(message, 401)
 
-case class Authority(nino:Nino, cl:ConfidenceLevel, authId:String)
+class NoInternalId(message: String) extends uk.gov.hmrc.play.http.HttpException(message, 401)
+
+class AccountWithLowCL(message: String) extends uk.gov.hmrc.play.http.HttpException(message, 401)
+
+case class Authority(nino: Nino, cl: ConfidenceLevel, authInternalId: String)
 
 trait AuthConnector {
 
@@ -41,21 +44,39 @@ trait AuthConnector {
   def serviceConfidenceLevel: ConfidenceLevel
 
   def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = {
+    for (
+      (nino, cl, oid) <- getAuthority;
+      id <- getAuthInternalId(oid)
+    ) yield Authority(nino, cl, id)
+  }
+
+  private def getAuthority()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[(Nino, ConfidenceLevel, String)] =
     http.GET(s"$serviceUrl/auth/authority") map {
       resp => {
         val json = resp.json
-        val cl = confirmConfiendenceLevel(json)
-        val uri = (json \ "uri").as[String]
+        val cl = confirmConfidenceLevel(json)
+        val ids = (json \ "ids").as[String]
         val nino = (json \ "accounts" \ "paye" \ "nino").asOpt[String]
 
-        if((json \ "accounts" \ "paye" \ "nino").asOpt[String].isEmpty)
+        if ((json \ "accounts" \ "paye" \ "nino").asOpt[String].isEmpty)
           throw new NinoNotFoundOnAccount("The user must have a National Insurance Number")
-        Authority(Nino(nino.get), ConfidenceLevel.fromInt(cl), uri)
+
+        (Nino(nino.get), ConfidenceLevel.fromInt(cl), ids)
       }
     }
-  }
 
-  private def confirmConfiendenceLevel(jsValue : JsValue) : Int = {
+  private def getAuthInternalId(ids: String)(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[String] =
+    http.GET(s"$serviceUrl$ids") map {
+      resp => {
+        val json = resp.json
+        if ((json \ "internalId").asOpt[String].isEmpty)
+          throw new NoInternalId("The user must have an internal id")
+
+        (json \ "internalId").as[String]
+      }
+    }
+
+  private def confirmConfidenceLevel(jsValue: JsValue): Int = {
     val usersCL = (jsValue \ "confidenceLevel").as[Int]
     if (serviceConfidenceLevel.level > usersCL) {
       throw new ForbiddenException("The user does not have sufficient permissions to access this service")

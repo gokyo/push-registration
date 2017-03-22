@@ -47,7 +47,7 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
     withAudit("register", PushRegistration.audit(registration)) {
       if (authority.isEmpty) Future.failed(new UnauthorizedException("Authority record not found for request!"))
 
-      repository.save(registration, authority.get.authId).map { result =>
+      repository.save(registration, authority.get.authInternalId).map { result =>
         result.updateType match {
           case Saved(_) => true
           case Updated(_,_) => false

@@ -23,7 +23,7 @@ import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
 import uk.gov.hmrc.play.http.hooks.HttpHook
 import uk.gov.hmrc.play.http._
 import uk.gov.hmrc.play.test.UnitSpec
-import uk.gov.hmrc.pushregistration.connectors.{NinoNotFoundOnAccount, AuthConnector}
+import uk.gov.hmrc.pushregistration.connectors.{AuthConnector, Authority, NinoNotFoundOnAccount, NoInternalId}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -32,11 +32,16 @@ class AuthConnectorSpec extends UnitSpec with ScalaFutures {
   implicit val hc = HeaderCarrier()
   implicit val ec: ExecutionContext = ExecutionContext.global
 
-  def authConnector(response : HttpResponse, cl: ConfidenceLevel = ConfidenceLevel.L200) = new AuthConnector {
+  def authConnector(authResponse: HttpResponse, oidResponse: HttpResponse, cl: ConfidenceLevel = ConfidenceLevel.L200) = new AuthConnector {
 
     override def http: HttpGet = new HttpGet {
-      override protected def doGet(url: String)(implicit hc: HeaderCarrier): Future[HttpResponse] = Future.successful(response)
-
+      override protected def doGet(url: String)(implicit hc: HeaderCarrier): Future[HttpResponse] = {
+        if (url.contains("oid")) {
+          Future.successful(oidResponse)
+        } else {
+          Future.successful(authResponse)
+        }
+      }
       override val hooks: Seq[HttpHook] = Seq.empty
     }
 
@@ -48,6 +53,47 @@ class AuthConnectorSpec extends UnitSpec with ScalaFutures {
 
   "grantAccess" should {
 
+    "create an Authority with an internal id" in {
+      val serviceConfidenceLevel = ConfidenceLevel.L200
+      val authorityConfidenceLevel = ConfidenceLevel.L200
+
+      val saUtr = Some(SaUtr("1872796160"))
+      val nino = Some(Nino("CS100700A"))
+      val oid = "ab12cd34"
+      val internalId = "int-" + oid
+      val externalId = "ext-" + oid
+
+      val authResponse = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino, oid)))
+      val oidResponse = HttpResponse(200, Some(idsJson(internalId, externalId)))
+
+      val authority: Authority = await(authConnector(authResponse, oidResponse, serviceConfidenceLevel).grantAccess())
+
+      authority.authInternalId shouldBe internalId
+    }
+
+    "error with unauthorised when no internal id can be found" in {
+      val serviceConfidenceLevel = ConfidenceLevel.L200
+      val authorityConfidenceLevel = ConfidenceLevel.L200
+
+      val saUtr = Some(SaUtr("1872796160"))
+      val nino = Some(Nino("CS100700A"))
+      val oid = "ab12cd34"
+      val internalId = "int-" + oid
+      val externalId = "ext-" + oid
+
+      val authResponse = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino, oid)))
+      val oidResponse = HttpResponse(200, Some(Json.parse("""{ "foo": "bar" }""")))
+
+      try {
+        await(authConnector(authResponse, oidResponse, serviceConfidenceLevel).grantAccess())
+      } catch {
+        case e: NoInternalId =>
+          e.message shouldBe "The user must have an internal id"
+        case t: Throwable =>
+          fail("Unexpected exception")
+      }
+    }
+
     "error with unauthorised when account has low CL" in {
 
       val serviceConfidenceLevel = ConfidenceLevel.L200
@@ -55,10 +101,11 @@ class AuthConnectorSpec extends UnitSpec with ScalaFutures {
       val saUtr = Some(SaUtr("1872796160"))
       val nino = None
 
-      val response = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino)))
+      val response = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino, "ab12cd34")))
+      val oidResponse = HttpResponse(200, Some(idsJson("foo", "bar")))
 
       try {
-        await(authConnector(response, serviceConfidenceLevel).grantAccess())
+        await(authConnector(response, oidResponse, serviceConfidenceLevel).grantAccess())
       } catch {
         case e: ForbiddenException =>
           e.message shouldBe "The user does not have sufficient permissions to access this service"
@@ -74,9 +121,11 @@ class AuthConnectorSpec extends UnitSpec with ScalaFutures {
 
       val saUtr = Some(SaUtr("1872796160"))
       val nino = Some(Nino("CS100700A"))
-      val response = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino)))
 
-      await(authConnector(response, serviceConfidenceLevel).grantAccess())
+      val response = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino, "ab12cd34")))
+      val oidResponse = HttpResponse(200, Some(idsJson("foo", "bar")))
+
+      await(authConnector(response, oidResponse, serviceConfidenceLevel).grantAccess())
     }
 
     "find NINO only account when CL is correct" in {
@@ -85,24 +134,24 @@ class AuthConnectorSpec extends UnitSpec with ScalaFutures {
       val authorityConfidenceLevel = ConfidenceLevel.L200
       val saUtr = None
       val nino = Some(Nino("CS100700A"))
+      val response = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino, "ab12cd34")))
+      val oidResponse = HttpResponse(200, Some(idsJson("foo", "bar")))
 
-      val response = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino)))
-
-      await(authConnector(response, serviceConfidenceLevel).grantAccess())
+      await(authConnector(response, oidResponse, serviceConfidenceLevel).grantAccess())
 
     }
 
     "fail to return authority when no NINO exists" in {
-
       val serviceConfidenceLevel = ConfidenceLevel.L200
       val authorityConfidenceLevel = ConfidenceLevel.L200
       val saUtr = None
       val nino = None
 
-      val response = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino)))
+      val response = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino, "ab12cd34")))
+      val oidResponse = HttpResponse(200, Some(idsJson("foo", "bar")))
 
       try {
-        await(authConnector(response, serviceConfidenceLevel).grantAccess())
+        await(authConnector(response, oidResponse, serviceConfidenceLevel).grantAccess())
       } catch {
         case e: NinoNotFoundOnAccount =>
           e.message shouldBe "The user must have a National Insurance Number"
@@ -123,22 +172,24 @@ class AuthConnectorSpec extends UnitSpec with ScalaFutures {
 
       val saUtr = Some(SaUtr("1872796160"))
       val nino = None
-      val response = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino)))
+
+      val response = HttpResponse(200, Some(authorityJson(authorityConfidenceLevel, saUtr, nino, "ab12cd34")))
+      val oidResponse = HttpResponse(200, Some(idsJson("foo", "bar")))
 
       try {
-        authConnector(response, serviceConfidenceLevel).grantAccess()
+        authConnector(response, oidResponse, serviceConfidenceLevel).grantAccess()
       } catch {
-        case e : UnauthorizedException =>
+        case e: UnauthorizedException =>
           e.message shouldBe "The user must have a National Insurance Number to access this service"
-        case t : Throwable =>
+        case t: Throwable =>
           fail("Unexpected error failure")
       }
     }
   }
 
-  def authorityJson(confidenceLevel: ConfidenceLevel, saUtr: Option[SaUtr], nino : Option[Nino]): JsValue = {
+  def authorityJson(confidenceLevel: ConfidenceLevel, saUtr: Option[SaUtr], nino: Option[Nino], oid: String): JsValue = {
 
-    val sa : String = saUtr match {
+    val sa: String = saUtr match {
       case Some(utr) => s"""
                           | "sa": {
                           |            "link": "/sa/individual/$utr",
@@ -177,10 +228,23 @@ class AuthConnectorSpec extends UnitSpec with ScalaFutures {
          |            "empRef": "754/MODES02"
          |        }
          |    },
-         |    "confidenceLevel": ${confidenceLevel.level},
-         |    "uri" : "someauthuri"
+         |    "confidenceLevel" : ${confidenceLevel.level},
+         |    "uri" : "/auth/oid/$oid",
+         |    "ids" : "/auth/oid/$oid/ids"
          |}
       """.stripMargin
+
+    Json.parse(json)
+  }
+
+  def idsJson(internalId: String, externalId: String): JsValue = {
+    val json =
+      s"""
+         |{
+         |  "internalId": "$internalId",
+         |  "externalId": "$externalId"
+         |}
+       """.stripMargin
 
     Json.parse(json)
   }
