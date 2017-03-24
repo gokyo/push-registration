@@ -52,7 +52,7 @@ class TestRepository extends PushRegistrationRepository {
   var savedRegistration :Option[PushRegistration] = None
   override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
     savedRegistration=Some(registration)
-    Future.successful(DatabaseUpdate(null, Saved(PushRegistrationPersist(BSONObjectID.generate, registration.token, authId, registration.device))))
+    Future.successful(DatabaseUpdate(null, Saved(PushRegistrationPersist(BSONObjectID.generate, registration.token, authId, registration.device, None))))
   }
 
   override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = ???
@@ -95,8 +95,8 @@ trait Setup {
 
   lazy val device = Device(NativeOS.Android, "1.2", "1.3", "samsung")
 
-  lazy val  registration = PushRegistration("token-a", None)
-  lazy val registrationWithDevice = PushRegistration("token-b", Some(device))
+  lazy val registration = PushRegistration("token-a", None, None)
+  lazy val registrationWithDevice = PushRegistration("token-b", Some(device), None)
   lazy val tokenToEndpointMap = Map("token-a" -> Some("/end/point"), "token-b" -> None)
   lazy val registrationJsonBody: JsValue = Json.toJson(registration)
   lazy val registrationWithDeviceJsonBody: JsValue = Json.toJson(registrationWithDevice)
@@ -148,7 +148,7 @@ trait SuccessUpdated extends Setup {
 
   override val testRepository = new TestRepository {
     override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
-      val update = PushRegistrationPersist(BSONObjectID.generate, registration.token, authId, None)
+      val update = PushRegistrationPersist(BSONObjectID.generate, registration.token, authId, None, None)
       savedRegistration=Some(registration)
       Future.successful(DatabaseUpdate(null, Updated(update,update)))
     }

@@ -22,7 +22,6 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.modules.reactivemongo.MongoDbConnection
-import reactivemongo.api.commands.WriteResult
 import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.api.{DB, ReadPreference}
 import reactivemongo.bson._
@@ -35,7 +34,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 
 
-case class PushRegistrationPersist(id: BSONObjectID, token: String, authId: String, device: Option[Device])
+case class PushRegistrationPersist(id: BSONObjectID, token: String, authId: String, device: Option[Device], endpoint: Option[String])
 
 object DeviceStore {
 

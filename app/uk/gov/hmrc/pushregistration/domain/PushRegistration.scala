@@ -100,21 +100,17 @@ object Device {
   }
 }
 
-case class PushRegistration(token: String, device:Option[Device])
+case class PushRegistration(token: String, device: Option[Device], endpoint: Option[String])
 
 object PushRegistration {
 
   implicit val reads: Reads[PushRegistration] = (
       (JsPath \ "token").read[String](maxLength[String](1024)) and
-      (JsPath \ "device").readNullable[Device]
+      (JsPath \ "device").readNullable[Device] and
+      (JsPath \ "endpoint").readNullable[String]
     )(PushRegistration.apply _)
 
-  implicit val writes = new Writes[PushRegistration] {
-    def writes(reg: PushRegistration) = Json.obj(
-        "token" -> reg.token,
-        "device" -> reg.device
-      )
-  }
+   implicit val writes: OWrites[PushRegistration] = Json.writes[PushRegistration]
 
   def audit(registration: PushRegistration) = {
     Map("token" -> registration.token) ++ registration.device.fold(Map[String, String]()) { device =>

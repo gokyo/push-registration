@@ -104,10 +104,10 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
       def buildString(length:Int) = "a" * length
 
       val toTest = Seq(
-        PushRegistration(buildString(1024+1), Some(device)),
-        PushRegistration("token1", Some(device.copy(osVersion = buildString(50+1)))),
-        PushRegistration("token1", Some(device.copy(appVersion = buildString(50+1)))),
-        PushRegistration("token2", Some(device.copy(model = buildString(100+1))))
+        PushRegistration(buildString(1024+1), Some(device), None),
+        PushRegistration("token1", Some(device.copy(osVersion = buildString(50+1))), None),
+        PushRegistration("token1", Some(device.copy(appVersion = buildString(50+1))), None),
+        PushRegistration("token2", Some(device.copy(model = buildString(100+1))), None)
       )
 
       toTest.foreach(registration => {

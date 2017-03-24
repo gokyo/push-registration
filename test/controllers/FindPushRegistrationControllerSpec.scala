@@ -41,9 +41,13 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
   override lazy val fakeApplication = FakeApplication(additionalConfiguration = config)
 
   val device = Device(NativeOS.Android, "1.2.3", "1.3", "Nexus 5")
-  val registrationPersist = PushRegistrationPersist(BSONObjectID.generate, "token", "authId", Some(device))
+  val endpoint = "/some/endpoint"
+  val registrationPersist = PushRegistrationPersist(BSONObjectID.generate, "token", "authId", Some(device), Some(endpoint))
+  val registrationIncompletePersist = PushRegistrationPersist(BSONObjectID.generate, "token", "authId", Some(device), None)
   val found = new TestFindRepository(Seq(registrationPersist))
-  val foundRegistration = PushRegistration("token", Some(device))
+  val foundIncomplete = new TestFindRepository(Seq(registrationIncompletePersist))
+  val foundRegistration = PushRegistration("token", Some(device), Some(endpoint))
+  val foundIncompleteRegistration = PushRegistration("token", Some(device), None)
 
   class TestFindRepository(response:Seq[PushRegistrationPersist]) extends TestRepository {
     override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = Future.failed(new IllegalArgumentException("Not defined"))
@@ -65,6 +69,19 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
       override val accessControl: AccountAccessControlWithHeaderCheck = testCompositeAction
       override implicit val ec: ExecutionContext = ExecutionContext.global
 
+    }
+  }
+
+  trait Incomplete extends Setup {
+    val testFindRepository = foundIncomplete
+
+    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testFindRepository , MicroserviceAuditConnector)
+
+    val controller = new FindPushRegistrationController {
+      override val service: PushRegistrationService = testPushRegistrationService
+      val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
+      override val accessControl: AccountAccessControlWithHeaderCheck = testCompositeAction
+      override implicit val ec: ExecutionContext = ExecutionContext.global
     }
   }
 
@@ -132,11 +149,11 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
   "findIncompleteRegistrations PushNotificationController" should {
 
-    "find unregistered tokens and return 200 success and Json" in new Success {
+    "find unregistered tokens and return 200 success and Json" in new Incomplete {
       val result: Result = await(controller.findIncompleteRegistrations()(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 200
-      contentAsJson(result) shouldBe Json.toJson(Seq(foundRegistration))
+      contentAsJson(result) shouldBe Json.toJson(Seq(foundIncompleteRegistration))
 
     }
 

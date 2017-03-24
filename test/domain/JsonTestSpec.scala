@@ -36,7 +36,7 @@ class JsonTestSpec extends UnitSpec with WithFakeApplication with ScalaFutures w
     "JSON serialization/deserialize" should {
 
       s"Successfully serialize/deserialize PushRegistration for OS range $item" in {
-        val pushRegObj = PushRegistration("token", Some(Device(item.nativeOS, "1.2", "1.1","some-device")))
+        val pushRegObj = PushRegistration("token", Some(Device(item.nativeOS, "1.2", "1.1","some-device")), None)
 
         Json.toJson(pushRegObj) shouldBe Json.parse(s"""{"token":"token","device":{"os":"${item.nativeOS}","osVersion":"1.2","appVersion":"1.1","model":"some-device"}}""")
       }
