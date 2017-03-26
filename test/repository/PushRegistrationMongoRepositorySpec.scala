@@ -19,7 +19,7 @@ package repository
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
 import reactivemongo.bson.BSONObjectID
-import reactivemongo.core.errors.DatabaseException
+import reactivemongo.core.errors.{DatabaseException, ReactiveMongoException}
 import uk.gov.hmrc.mongo.{DatabaseUpdate, MongoSpecSupport, Saved, Updated}
 import uk.gov.hmrc.play.test.UnitSpec
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, PushRegistration}
@@ -170,6 +170,14 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
       found.head.endpoint shouldBe Some(someEndpoint)
       otherFound.head.endpoint shouldBe None
+    }
+
+    "throw an exception when attempting to create(!) an endpoint with endpoint" in new Setup {
+      val result = intercept[ReactiveMongoException] {
+        repository.save(PushRegistration("token", Some(deviceAndroid), Some("/endpoint")), "id")
+      }
+
+      result.message should include("use saveEndpoint() instead")
     }
 
     "find a batch of tokens that do not have associated endpoints" in new Setup {

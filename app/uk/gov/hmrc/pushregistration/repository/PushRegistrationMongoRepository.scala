@@ -25,6 +25,7 @@ import play.modules.reactivemongo.MongoDbConnection
 import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.api.{DB, ReadPreference}
 import reactivemongo.bson._
+import reactivemongo.core.errors.ReactiveMongoException
 import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
 import uk.gov.hmrc.mongo.{AtomicUpdate, BSONBuilderHelpers, DatabaseUpdate, ReactiveRepository}
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, OS, PushRegistration}
@@ -158,6 +159,10 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   }
 
   override def save(registration: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
+    if (registration.endpoint.isDefined) {
+      throw ReactiveMongoException("You must not create a push registration with endpoint, use saveEndpoint() instead!")
+    }
+
     atomicUpsert(findByTokenAndAuthId(registration.token, authId), modifierForInsert(registration, authId))
   }
 }
