@@ -22,10 +22,10 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.modules.reactivemongo.MongoDbConnection
-import reactivemongo.api.commands.WriteResult
 import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.api.{DB, ReadPreference}
 import reactivemongo.bson._
+import reactivemongo.core.errors.ReactiveMongoException
 import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
 import uk.gov.hmrc.mongo.{AtomicUpdate, BSONBuilderHelpers, DatabaseUpdate, ReactiveRepository}
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, OS, PushRegistration}
@@ -35,7 +35,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 
 
-case class PushRegistrationPersist(id: BSONObjectID, token: String, authId: String, device: Option[Device])
+case class PushRegistrationPersist(id: BSONObjectID, token: String, authId: String, device: Option[Device], endpoint: Option[String])
 
 object DeviceStore {
 
@@ -159,6 +159,10 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   }
 
   override def save(registration: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
+    if (registration.endpoint.isDefined) {
+      throw ReactiveMongoException("You must not create a push registration with endpoint, use saveEndpoint() instead!")
+    }
+
     atomicUpsert(findByTokenAndAuthId(registration.token, authId), modifierForInsert(registration, authId))
   }
 }

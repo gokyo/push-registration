@@ -19,7 +19,7 @@ package repository
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
 import reactivemongo.bson.BSONObjectID
-import reactivemongo.core.errors.DatabaseException
+import reactivemongo.core.errors.{DatabaseException, ReactiveMongoException}
 import uk.gov.hmrc.mongo.{DatabaseUpdate, MongoSpecSupport, Saved, Updated}
 import uk.gov.hmrc.play.test.UnitSpec
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, PushRegistration}
@@ -42,13 +42,14 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
     val testToken2 = "token-2"
     val testToken3 = "token-3"
     val testToken4 = "token-4"
+    val testEndpoint = "/foo/bar/baz"
     val deviceAndroid = Device(NativeOS.Android, "7.0", "1.1", "nexus")
     val deviceiOS = Device(NativeOS.iOS, "2.3", "1.2", "apple")
     val deviceWindows = Device(NativeOS.Windows, "3.3", "1.2", "some-windows-device")
-    val registrationUnknownDevice = PushRegistration(testToken1, None)
-    val registrationWithDeviceAndroid = PushRegistration(testToken2, Some(deviceAndroid))
-    val registrationWithDeviceiOS = PushRegistration(testToken3, Some(deviceiOS))
-    val registrationWithDeviceWindows = PushRegistration(testToken4, Some(deviceWindows))
+    val registrationUnknownDevice = PushRegistration(testToken1, None, None)
+    val registrationWithDeviceAndroid = PushRegistration(testToken2, Some(deviceAndroid), None)
+    val registrationWithDeviceiOS = PushRegistration(testToken3, Some(deviceiOS), None)
+    val registrationWithDeviceWindows = PushRegistration(testToken4, Some(deviceWindows), None)
     val items: Seq[(PushRegistration, String)] = Seq(
         (registrationUnknownDevice, "auth-1"),
         (registrationWithDeviceAndroid, "auth-2"),
@@ -69,8 +70,8 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       val resp: DatabaseUpdate[PushRegistrationPersist] = await(repository.save(registrationUnknownDevice, authId))
 
       a[DatabaseException] should be thrownBy await(repository.insert(resp.updateType.savedValue))
-      await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate)))
-      await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate, authId = "another authId")))
+      await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate, endpoint = None)))
+      await(repository.insert(resp.updateType.savedValue.copy(id = BSONObjectID.generate, authId = "another authId", endpoint = None)))
     }
   }
 
@@ -86,7 +87,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
         result.updateType.savedValue.authId shouldBe item._2
         result.updateType.savedValue.device shouldBe item._1.device
 
-        val result2 = await(repository.save(item._1.copy(token = item._1.token + "another token"), item._2))
+        val result2 = await(repository.save(item._1.copy(token = item._1.token + "another token", endpoint = None), item._2))
         result2.updateType shouldBe an[Saved[_]]
         result2.updateType.savedValue.token shouldBe item._1.token + "another token"
         result2.updateType.savedValue.authId shouldBe item._2
@@ -103,11 +104,11 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
         result.updateType.savedValue.token shouldBe item._1.token
         result.updateType.savedValue.authId shouldBe item._2
 
-        val result1 = await(repository.save(item._1.copy(token = item._1.token + "another token"), item._2))
+        val result1 = await(repository.save(item._1.copy(token = item._1.token + "another token", endpoint = None), item._2))
         result1.updateType shouldBe an[Saved[_]]
-        val result2 = await(repository.save(item._1.copy(token = item._1.token + "yet another token"), item._2))
+        val result2 = await(repository.save(item._1.copy(token = item._1.token + "yet another token", endpoint = None), item._2))
         result2.updateType shouldBe an[Saved[_]]
-        val result3 = await(repository.save(item._1.copy(token = item._1.token + "yet another token"), item._2))
+        val result3 = await(repository.save(item._1.copy(token = item._1.token + "yet another token", endpoint = None), item._2))
         result3.updateType shouldBe an[Updated[_]]
 
         val findResult = await(repository.findByAuthId(item._2))
@@ -148,16 +149,35 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
     }
 
     "save endpoints associated with a token" in new Setup {
+      val someAuthId = "auth-b"
+      val otherAuthId = "auth-a"
+      val someEndpoint = "/endpoint/b"
+      val otherEndpoint = "/endpoint/c"
+
       await {
-        repository.save(registrationWithDeviceAndroid, "auth-a")
-        repository.save(registrationWithDeviceiOS, "auth-b")
+        repository.save(registrationWithDeviceAndroid, someAuthId)
+        repository.save(registrationWithDeviceiOS, otherAuthId)
       }
 
-      val updatedOk: Boolean = await(repository.saveEndpoint(registrationWithDeviceAndroid.token, "/endpoint/b"))
-      val updateNotFound: Boolean = await(repository.saveEndpoint(registrationWithDeviceWindows.token, "/endpoint/c"))
+      val updatedOk: Boolean = await(repository.saveEndpoint(registrationWithDeviceAndroid.token, someEndpoint))
+      val updateNotFound: Boolean = await(repository.saveEndpoint(registrationWithDeviceWindows.token, otherEndpoint))
 
       updatedOk shouldBe true
       updateNotFound shouldBe false
+
+      val found = await(repository.findByAuthId(someAuthId))
+      val otherFound = await(repository.findByAuthId(otherAuthId))
+
+      found.head.endpoint shouldBe Some(someEndpoint)
+      otherFound.head.endpoint shouldBe None
+    }
+
+    "throw an exception when attempting to create(!) an endpoint with endpoint" in new Setup {
+      val result = intercept[ReactiveMongoException] {
+        repository.save(PushRegistration("token", Some(deviceAndroid), Some("/endpoint")), "id")
+      }
+
+      result.message should include("use saveEndpoint() instead")
     }
 
     "find a batch of tokens that do not have associated endpoints" in new Setup {

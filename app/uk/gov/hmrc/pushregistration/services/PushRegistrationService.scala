@@ -58,13 +58,13 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
 
   override def find(id:String)(implicit hc: HeaderCarrier): Future[Seq[PushRegistration]] = {
     withAudit("find", Map("authId" -> id)) {
-      repository.findByAuthId(id).map { item => item.map(row => PushRegistration(row.token, row.device))
+      repository.findByAuthId(id).map { item => item.map(row => PushRegistration(row.token, row.device, row.endpoint))
       }
     }
   }
 
   override def findIncompleteRegistrations(): Future[Seq[PushRegistration]] = {
-    repository.findIncompleteRegistrations().map { item => item.map(row => PushRegistration(row.token, row.device))}
+    repository.findIncompleteRegistrations().map { item => item.map(row => PushRegistration(row.token, row.device, None))}
   }
 
   override def registerEndpoints(endpoints: Map[String,Option[String]]): Future[Boolean] = {
@@ -86,7 +86,7 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
 }
 
 object SandboxPushRegistrationService extends PushRegistrationService with FileResource {
-  private val someTokens = Seq(PushRegistration("token1", Some(Device(NativeOS.Android, "7.0", "1.2", "Nexus 5"))), PushRegistration("token2", Some(Device(NativeOS.iOS, "1.4.5", "1.3", "Apple 6"))))
+  private val someTokens = Seq(PushRegistration("token1", Some(Device(NativeOS.Android, "7.0", "1.2", "Nexus 5")), None), PushRegistration("token2", Some(Device(NativeOS.iOS, "1.4.5", "1.3", "Apple 6")), None))
 
   override def register(registration:PushRegistration)(implicit hc: HeaderCarrier, authority:Option[Authority]): Future[Boolean] = {
     Future.successful(true)

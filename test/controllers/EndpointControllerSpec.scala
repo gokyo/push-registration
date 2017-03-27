@@ -33,7 +33,7 @@ class EndpointControllerSpec extends UnitSpec with WithFakeApplication with Scal
   override lazy val fakeApplication = FakeApplication(additionalConfiguration = config)
 
   class TestRegisterEndpointRepository(save: Boolean, remove: Boolean) extends TestRepository {
-    val persist = PushRegistrationPersist(BSONObjectID.generate, "some-token", "authid", None)
+    val persist = PushRegistrationPersist(BSONObjectID.generate, "some-token", "authid", None, None)
     override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = Future.successful(save)
 
     override def removeToken(token: String): Future[Boolean] = Future.successful(remove)
