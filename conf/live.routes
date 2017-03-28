@@ -3,6 +3,8 @@ POST    /push/registration          uk.gov.hmrc.pushregistration.controllers.Liv
 
 GET     /push/registration/:id      uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController.find(id:String, journeyId: Option[String])
 
-GET     /push/registration      uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController.findIncompleteRegistrations()
+GET     /push/endpoint          uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController.findIncompleteRegistrations()
 
 POST    /push/endpoint          uk.gov.hmrc.pushregistration.controllers.EndpointController.registerEndpoints()
+
+GET     /push/endpoint/:id      uk.gov.hmrc.pushregistration.controllers.EndpointController.getEndpointsForAuthId(id:String)
