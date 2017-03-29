@@ -19,6 +19,9 @@ API
 |--------|----|----|
 | ```/push/registration``` | POST | Return 201 created or 200 updated. [More...](docs/registration.md)  |
 | ```/push/registration/:id``` | GET | Find record by auth id. [More...](docs/find.md)  |
+| ```/push/endpoint``` | GET | Find incomplete registrations. [More...](docs/incomplete-registrations.md) |
+| ```/push/endpoint``` | POST | Register ARN endpoints. [More...](docs/register-endpoints.md) |
+| ```/push/endpoint/:id``` | GET | Find endpoints for an auth id. [More...](docs/get-endpoints.md)  |
 
 
 # Sandbox
