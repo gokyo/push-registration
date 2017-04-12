@@ -27,6 +27,8 @@ import uk.gov.hmrc.pushregistration.services.{LivePushRegistrationService, PushR
 import scala.concurrent.ExecutionContext
 
 trait FindPushRegistrationController extends BaseController with HeaderValidator with ErrorHandling {
+  val NoUnregisteredEndpoints: JsValue = Json.parse("""{"code":"NOT_FOUND","message":"No unregistered endpoints"}""")
+
   val service: PushRegistrationService
   val accessControl: AccountAccessControlWithHeaderCheck
 
@@ -40,7 +42,7 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
     _ =>
       service.findIncompleteRegistrations().map {
         response =>
-          if (response.isEmpty) NotFound else Ok(Json.toJson(response))
+          if (response.isEmpty) NotFound(NoUnregisteredEndpoints) else Ok(Json.toJson(response))
       }
   }
 }

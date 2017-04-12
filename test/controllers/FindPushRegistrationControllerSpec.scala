@@ -161,6 +161,7 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
       val result: Result = await(controller.findIncompleteRegistrations()(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 404
+      contentAsJson(result) shouldBe Json.parse("""{"code":"NOT_FOUND","message":"No unregistered endpoints"}""")
 
     }
   }
