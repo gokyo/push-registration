@@ -7,4 +7,4 @@ GET     /push/endpoint          uk.gov.hmrc.pushregistration.controllers.FindPus
 
 POST    /push/endpoint          uk.gov.hmrc.pushregistration.controllers.EndpointController.registerEndpoints()
 
-GET     /push/endpoint/:id      uk.gov.hmrc.pushregistration.controllers.EndpointController.getEndpointsForAuthId(id:String)
+GET     /push/endpoint/:id      uk.gov.hmrc.pushregistration.controllers.EndpointController.getEndpointsWithNativeOsForAuthId(id:String)

@@ -21,6 +21,7 @@ import play.api.libs.json._
 import play.api.mvc.{Action, BodyParsers}
 import uk.gov.hmrc.play.http.HeaderCarrier
 import uk.gov.hmrc.play.microservice.controller.BaseController
+import uk.gov.hmrc.pushregistration.domain.NativeOS
 import uk.gov.hmrc.pushregistration.services.{LivePushRegistrationService, PushRegistrationService}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -55,12 +56,15 @@ trait EndpointController extends BaseController with ErrorHandling {
       )
   }
 
-  def getEndpointsForAuthId(id: String) = Action.async {
+  def getEndpointsWithNativeOsForAuthId(id: String) = Action.async {
     errorWrapper(
+
       service.find(id)
-        .map(_.filter(_.endpoint.isDefined)
-          .map(_.endpoint.get).filter(!_.startsWith("_RESOLVING")))
-        .map(response => if (response.isEmpty) NotFound else Ok(Json.toJson(response)))
+        .map(_.filter(registration => registration.endpoint.isDefined
+          && !registration.endpoint.get.startsWith("_RESOLVING")
+          && registration.device.isDefined))
+        .map(_.map(registration => registration.endpoint.get -> registration.device.get.os))
+        .map(response => if (response.isEmpty) NotFound else Ok(Json.toJson(response.toMap)))
     )
   }
 }
