@@ -17,7 +17,7 @@
 package controllers
 
 import org.scalatest.concurrent.ScalaFutures
-import play.api.libs.json.{JsArray, Json}
+import play.api.libs.json.{JsArray, JsObject, Json}
 import play.api.mvc.Result
 import play.api.test.FakeApplication
 import play.api.test.Helpers.contentAsJson
@@ -104,23 +104,23 @@ class EndpointControllerSpec extends UnitSpec with WithFakeApplication with Scal
   "EndpointController getEndpointsForAuthId" should {
     "return 200 success and endpoint details given an authority with endpoints" in new Success {
 
-      val result: Result = await(controller.getEndpointsForAuthId("id")(emptyRequestWithAcceptHeader))
+      val result: Result = await(controller.getEndpointsWithNativeOsForAuthId("id")(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 200
-      contentAsJson(result) shouldBe an[JsArray]
+      contentAsJson(result) shouldBe an[JsObject]
     }
 
     "only include \"resolved\" endpoints" in new Success {
 
-      val result: Result = await(controller.getEndpointsForAuthId("id")(emptyRequestWithAcceptHeader))
+      val result: Result = await(controller.getEndpointsWithNativeOsForAuthId("id")(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 200
-      contentAsJson(result) shouldBe Json.toJson(registrations.map(_.endpoint).dropRight(1))
+      contentAsJson(result) shouldBe Json.toJson(registrations.map(registration => (registration.endpoint.get, registration.device.get.os)).dropRight(1).toMap)
     }
 
     "return 404 if an authority does not have any endpoints" in new PartialFail {
 
-      val result: Result = await(controller.getEndpointsForAuthId("id")(emptyRequestWithAcceptHeader))
+      val result: Result = await(controller.getEndpointsWithNativeOsForAuthId("id")(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 404
     }
