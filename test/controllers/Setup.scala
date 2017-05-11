@@ -74,6 +74,7 @@ class TestPushRegistrationService(testAuthConnector:TestAuthConnector, testRepos
 
   override val auditConnector = testAuditConnector
   override val repository = testRepository
+  override val batchSize = 10
 }
 
 class TestAccessCheck(testAuthConnector: TestAuthConnector) extends AccountAccessControl {

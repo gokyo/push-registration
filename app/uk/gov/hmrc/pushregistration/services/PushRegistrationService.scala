@@ -16,9 +16,11 @@
 
 package uk.gov.hmrc.pushregistration.services
 
+import play.api.Logger
 import uk.gov.hmrc.api.sandbox._
 import uk.gov.hmrc.api.service._
 import uk.gov.hmrc.mongo.{Saved, Updated}
+import uk.gov.hmrc.play.config.ServicesConfig
 import uk.gov.hmrc.play.http.{HeaderCarrier, UnauthorizedException}
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.Authority
@@ -40,6 +42,7 @@ trait PushRegistrationService {
 
 trait LivePushRegistrationService extends PushRegistrationService with Auditor {
 
+  val batchSize: Int
   def repository: PushRegistrationRepository
 
   override def register(registration:PushRegistration)(implicit hc: HeaderCarrier, authority:Option[Authority]): Future[Boolean] = {
@@ -64,7 +67,10 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
   }
 
   override def findIncompleteRegistrations(): Future[Seq[PushRegistration]] = {
-    repository.findIncompleteRegistrations(100).map { item => item.map(row => PushRegistration(row.token, row.device, None))}
+    repository.findIncompleteRegistrations(batchSize).map { item => item.map(row => PushRegistration(row.token, row.device, None)) }.
+      andThen { case batch =>
+        Logger.info(s"asked for $batchSize incomplete registrations; got ${batch.getOrElse(Seq.empty).size}")
+      }
   }
 
   override def registerEndpoints(endpoints: Map[String,Option[String]]): Future[Boolean] = {
@@ -102,7 +108,9 @@ object SandboxPushRegistrationService extends PushRegistrationService with FileR
     Future.successful(false)
 }
 
-object LivePushRegistrationService extends LivePushRegistrationService {
+object LivePushRegistrationService extends LivePushRegistrationService with ServicesConfig {
+  override val batchSize: Int = getInt("unregisteredBatchSize")
+
   override val auditConnector = MicroserviceAuditConnector
 
   override val repository:PushRegistrationRepository = PushRegistrationRepository()
