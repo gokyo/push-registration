@@ -53,7 +53,7 @@ class EndpointControllerSpec extends UnitSpec with WithFakeApplication with Scal
     val authId = "int-id"
     val registrations = Seq(
       PushRegistration("some-token", Some(Device(Android, "1.2", "3.4.5", "Quux+")), Some("device:end:point")),
-      PushRegistration("other-token", Some(Device(Windows, "9.8", "7.6.5", "Grault")), Some("_RESOLVING_b697f2a5-2047_"))
+      PushRegistration("other-token", Some(Device(Windows, "9.8", "7.6.5", "Grault")), None)
     )
     val testRegisterEndpointsRepository = new TestRegisterEndpointRepository(true, true, authId, registrations)
     val testLockRepository = new TestLockRepository
@@ -117,7 +117,7 @@ class EndpointControllerSpec extends UnitSpec with WithFakeApplication with Scal
       val result: Result = await(controller.getEndpointsWithNativeOsForAuthId("id")(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 200
-      contentAsJson(result) shouldBe Json.toJson(registrations.map(registration => (registration.endpoint.get, registration.device.get.os)).dropRight(1).toMap)
+      contentAsJson(result) shouldBe Json.toJson(registrations.filter(_.endpoint.isDefined).map(registration => (registration.endpoint.get, registration.device.get.os)) toMap)
     }
 
     "return 404 if an authority does not have any endpoints" in new PartialFail {

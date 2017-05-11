@@ -60,9 +60,7 @@ trait EndpointController extends BaseController with ErrorHandling {
     errorWrapper(
 
       service.find(id)
-        .map(_.filter(registration => registration.endpoint.isDefined
-          && !registration.endpoint.get.startsWith("_RESOLVING")
-          && registration.device.isDefined))
+        .map(_.filter(registration => registration.endpoint.isDefined && registration.device.isDefined))
         .map(_.map(registration => registration.endpoint.get -> registration.device.get.os))
         .map(response => if (response.isEmpty) NotFound else Ok(Json.toJson(response.toMap)))
     )

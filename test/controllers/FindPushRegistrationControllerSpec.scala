@@ -58,7 +58,7 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
     override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
 
-    override def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
+    override def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
   }
 
   trait Success extends Setup {

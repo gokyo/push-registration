@@ -26,17 +26,19 @@ import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, PushRegistration}
 import uk.gov.hmrc.pushregistration.repository.{PushRegistrationMongoRepository, PushRegistrationPersist}
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class PushRegistrationMongoRepositorySpec extends UnitSpec with
-                                                 MongoSpecSupport with
-                                                 BeforeAndAfterEach with
-                                                 ScalaFutures with
-                                                 LoneElement with
-                                                 Eventually {
+  MongoSpecSupport with
+  BeforeAndAfterEach with
+  ScalaFutures with
+  LoneElement with
+  Eventually {
 
   private val repository: PushRegistrationMongoRepository = new PushRegistrationMongoRepository
 
   trait Setup {
+    val maxRows = 10
     val authId = "some-auth-id"
     val testToken1 = "token-1"
     val testToken2 = "token-2"
@@ -51,10 +53,10 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
     val registrationWithDeviceiOS = PushRegistration(testToken3, Some(deviceiOS), None)
     val registrationWithDeviceWindows = PushRegistration(testToken4, Some(deviceWindows), None)
     val items: Seq[(PushRegistration, String)] = Seq(
-        (registrationUnknownDevice, "auth-1"),
-        (registrationWithDeviceAndroid, "auth-2"),
-        (registrationWithDeviceiOS, "auth-3"),
-        (registrationWithDeviceWindows, "auth-4")
+      (registrationUnknownDevice, "auth-1"),
+      (registrationWithDeviceAndroid, "auth-2"),
+      (registrationWithDeviceiOS, "auth-3"),
+      (registrationWithDeviceWindows, "auth-4")
     )
   }
 
@@ -189,7 +191,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
       await(repository.saveEndpoint(registrationWithDeviceAndroid.token, "/some/endpoint/arn"))
 
-      val result: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations())
+      val result: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(maxRows))
 
       result.size shouldBe 2
     }
@@ -200,7 +202,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
         repository.save(registrationWithDeviceiOS, "auth-b")
       }
 
-      val result: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations())
+      val result: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(maxRows))
 
       result.size shouldBe 1
       result.head.token shouldBe registrationWithDeviceiOS.token
@@ -218,7 +220,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
         repository.saveEndpoint(registrationWithDeviceWindows.token, "/some/endpoint/c")
       }
 
-      val result: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations())
+      val result: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(maxRows))
 
       result.size shouldBe 1
       result.head.token shouldBe registrationWithDeviceiOS.token
@@ -229,17 +231,30 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
         repository.save(registrationWithDeviceAndroid, "auth-a")
       }
 
-      val first: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations())
+      val first: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(maxRows))
 
       first.size shouldBe 1
 
-      val second: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations())
+      val second: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(maxRows))
 
       second.size shouldBe 0
     }
 
-    // TODO: implement limits
-    // "return only max-limit tokens when there are more than max-limit tokens that do not have associated endpoints"
+     "return only max-limit tokens when there are more than max-limit tokens that do not have associated endpoints" in new Setup {
+      val someLimit = 10
+
+      await{
+        Future.sequence((1 to someLimit + 1).map(i => repository.save(registrationWithDeviceiOS, s"auth-$i")))
+      }
+
+      val allSaved: List[PushRegistrationPersist] = await(repository.findAll())
+
+      allSaved.size should be > someLimit
+
+      val result = await(repository.findIncompleteRegistrations(someLimit))
+
+      result.size shouldBe someLimit
+    }
 
     "remove tokens" in new Setup {
       await {
@@ -252,7 +267,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
       result shouldBe true
 
-      val remaining: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations())
+      val remaining: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(maxRows))
 
       remaining.size shouldBe 2
     }

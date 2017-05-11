@@ -62,7 +62,7 @@ class TestRepository extends PushRegistrationRepository {
 
   override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = ???
 
-  override def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]] = ???
+  override def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]] = ???
 
   override def removeToken(token: String): Future[Boolean] = ???
 
@@ -80,7 +80,7 @@ class TestLockRepository(canLock: Boolean = true)(implicit mongo: () => DB) exte
 }
 
 class TestPushRegistrationService(testAuthConnector: TestAuthConnector, testRepository: TestRepository, testLockRepository: LockRepository, testAuditConnector: AuditConnector) extends LivePushRegistrationService {
-  var saveDetails: Map[String, String] = Map.empty
+  var saveDetails:Map[String, String]=Map.empty
 
   override def audit(service: String, details: Map[String, String])(implicit hc: HeaderCarrier, ec: ExecutionContext) = {
     saveDetails = details
@@ -90,6 +90,7 @@ class TestPushRegistrationService(testAuthConnector: TestAuthConnector, testRepo
   override val auditConnector = testAuditConnector
   override val pushRegistrationRepository = testRepository
   override val lockRepository = testLockRepository
+  override val batchSize = 10
 }
 
 class TestAccessCheck(testAuthConnector: TestAuthConnector) extends AccountAccessControl {

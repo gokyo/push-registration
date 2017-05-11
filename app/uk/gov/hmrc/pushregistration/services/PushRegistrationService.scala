@@ -17,11 +17,13 @@
 package uk.gov.hmrc.pushregistration.services
 
 import org.joda.time.Duration
+import play.api.Logger
 import play.modules.reactivemongo.MongoDbConnection
 import uk.gov.hmrc.api.sandbox._
 import uk.gov.hmrc.api.service._
 import uk.gov.hmrc.lock.{LockKeeper, LockMongoRepository, LockRepository}
 import uk.gov.hmrc.mongo.{Saved, Updated}
+import uk.gov.hmrc.play.config.ServicesConfig
 import uk.gov.hmrc.play.http.{HeaderCarrier, UnauthorizedException}
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.Authority
@@ -45,6 +47,8 @@ trait PushRegistrationService {
 }
 
 trait LivePushRegistrationService extends PushRegistrationService with Auditor {
+
+  val batchSize: Int
 
   def pushRegistrationRepository: PushRegistrationRepository
 
@@ -81,8 +85,10 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
 
   override def findIncompleteRegistrations(): Future[Option[Seq[PushRegistration]]] = {
     findIncompleteLockKeeper.tryLock {
-      pushRegistrationRepository.findIncompleteRegistrations()
-        .map { item => item.map(row => PushRegistration(row.token, row.device, None)) }
+      pushRegistrationRepository.findIncompleteRegistrations(batchSize).map { item => item.map(row => PushRegistration(row.token, row.device, None)) }.
+        andThen { case batch =>
+          Logger.info(s"asked for $batchSize incomplete registrations; got ${batch.getOrElse(Seq.empty).size}")
+        }
     }
   }
 
@@ -121,7 +127,8 @@ object SandboxPushRegistrationService extends PushRegistrationService with FileR
     Future.successful(false)
 }
 
-object LivePushRegistrationService extends LivePushRegistrationService with MongoDbConnection {
+object LivePushRegistrationService extends LivePushRegistrationService with ServicesConfig with MongoDbConnection {
+  override val batchSize: Int = getInt("unregisteredBatchSize")
 
   override val auditConnector = MicroserviceAuditConnector
 
