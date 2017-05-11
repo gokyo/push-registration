@@ -16,8 +16,6 @@
 
 package uk.gov.hmrc.pushregistration.repository
 
-import java.util.UUID
-
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
@@ -121,26 +119,25 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
       collect[Seq]()
   }
 
-  override def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]] = {
-    val batchId = s"_RESOLVING_${UUID.randomUUID().toString}_"
-
-    val result = collection.update(
-      BSONDocument("$and" -> BSONArray(
+  override def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]] = {
+    for (
+      batch: Seq[PushRegistrationPersist] <- collection.find(BSONDocument("$and" -> BSONArray(
         BSONDocument("endpoint" -> BSONDocument("$exists" -> false)),
+        BSONDocument("processing" -> BSONDocument("$exists" -> false)),
         BSONDocument("device.os" -> BSONDocument("$exists" -> true))
-      )),
-      BSONDocument("$set" -> BSONDocument("endpoint" -> batchId)),
-      upsert = false,
-      multi = true
-    )
-
-    result.flatMap { _ =>
-      collection.
-        find(BSONDocument("endpoint" -> batchId)).
-        sort(Json.obj("updated" -> JsNumber(-1))).
-        cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
-        collect[Seq]()
-    }
+      ))).
+        sort(Json.obj("created" -> JsNumber(-1))).cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
+        collect[List](maxRows);
+      updateWriteResult <- collection.update(
+        BSONDocument("_id" -> BSONDocument("$in" -> batch.foldLeft(BSONArray())((a, p) => a.add(p.id)))),
+        BSONDocument("$set" -> BSONDocument("processing" -> BSONDateTime(DateTimeUtils.now.getMillis))),
+        upsert = false,
+        multi = true
+      );
+      incompleteRegistrations: Seq[PushRegistrationPersist] <- if (updateWriteResult.ok) Future.successful(batch) else Future.failed(new ReactiveMongoException {
+        override def message: String = "failed to fetch incomplete registrations"
+      })
+    ) yield incompleteRegistrations
   }
 
   override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = {
@@ -172,7 +169,7 @@ trait PushRegistrationRepository {
 
   def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]]
 
-  def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]]
+  def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]]
 
   def saveEndpoint(token: String, endpoint: String): Future[Boolean]
 

@@ -35,15 +35,19 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
   def find(id: String, journeyId: Option[String] = None) = accessControl.validateAccept(acceptHeaderValidationRules).async {
     implicit request =>
       implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
-      errorWrapper(service.find(id).map { response => if (response.isEmpty) NotFound else Ok(Json.toJson(response)) })
+      errorWrapper(service.find(id).map {
+        response =>
+          if (response.isEmpty) NotFound else Ok(Json.toJson(response))
+      })
   }
 
   def findIncompleteRegistrations() = Action.async {
-    _ =>
-      service.findIncompleteRegistrations().map {
+    implicit request =>
+      implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
+      errorWrapper(service.findIncompleteRegistrations().map {
         response =>
           if (response.isEmpty) NotFound(NoUnregisteredEndpoints) else Ok(Json.toJson(response))
-      }
+      })
   }
 }
 

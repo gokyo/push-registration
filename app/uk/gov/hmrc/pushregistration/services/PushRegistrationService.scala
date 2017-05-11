@@ -64,7 +64,7 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
   }
 
   override def findIncompleteRegistrations(): Future[Seq[PushRegistration]] = {
-    repository.findIncompleteRegistrations().map { item => item.map(row => PushRegistration(row.token, row.device, None))}
+    repository.findIncompleteRegistrations(100).map { item => item.map(row => PushRegistration(row.token, row.device, None))}
   }
 
   override def registerEndpoints(endpoints: Map[String,Option[String]]): Future[Boolean] = {

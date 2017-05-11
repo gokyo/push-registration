@@ -57,7 +57,7 @@ class TestRepository extends PushRegistrationRepository {
 
   override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = ???
 
-  override def findIncompleteRegistrations(): Future[Seq[PushRegistrationPersist]] = ???
+  override def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]] = ???
 
   override def removeToken(token: String): Future[Boolean] = ???
 
