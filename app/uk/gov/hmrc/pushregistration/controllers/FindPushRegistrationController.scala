@@ -28,6 +28,7 @@ import scala.concurrent.ExecutionContext
 
 trait FindPushRegistrationController extends BaseController with HeaderValidator with ErrorHandling {
   val NoUnregisteredEndpoints: JsValue = Json.parse("""{"code":"NOT_FOUND","message":"No unregistered endpoints"}""")
+  val LockFailed: JsValue = Json.parse("""{"code":"SERVICE_UNAVAILABLE","message":"Failed to obtain lock"}""")
 
   val service: PushRegistrationService
   val accessControl: AccountAccessControlWithHeaderCheck
@@ -41,8 +42,10 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
   def findIncompleteRegistrations() = Action.async {
     _ =>
       service.findIncompleteRegistrations().map {
-        response =>
-          if (response.isEmpty) NotFound(NoUnregisteredEndpoints) else Ok(Json.toJson(response))
+        _.map {
+          registrations =>
+            if (registrations.isEmpty) NotFound(NoUnregisteredEndpoints) else Ok(Json.toJson(registrations))
+        }.getOrElse(ServiceUnavailable(LockFailed))
       }
   }
 }
