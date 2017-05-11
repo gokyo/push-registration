@@ -20,6 +20,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.modules.reactivemongo.MongoDbConnection
+import reactivemongo.api.commands.UpdateWriteResult
 import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.api.{DB, ReadPreference}
 import reactivemongo.bson._
@@ -120,23 +121,35 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   }
 
   override def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]] = {
-    for (
-      batch: Seq[PushRegistrationPersist] <- collection.find(BSONDocument("$and" -> BSONArray(
+    def getIncompleteRegistrationsBatch = {
+      collection.find(BSONDocument("$and" -> BSONArray(
         BSONDocument("endpoint" -> BSONDocument("$exists" -> false)),
         BSONDocument("processing" -> BSONDocument("$exists" -> false)),
         BSONDocument("device.os" -> BSONDocument("$exists" -> true))
       ))).
         sort(Json.obj("created" -> JsNumber(-1))).cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
-        collect[List](maxRows);
-      updateWriteResult <- collection.update(
+        collect[List](maxRows)
+    }
+
+    def setProcessing(batch: List[PushRegistrationPersist]) = {
+      collection.update(
         BSONDocument("_id" -> BSONDocument("$in" -> batch.foldLeft(BSONArray())((a, p) => a.add(p.id)))),
         BSONDocument("$set" -> BSONDocument("processing" -> BSONDateTime(DateTimeUtils.now.getMillis))),
         upsert = false,
         multi = true
-      );
-      incompleteRegistrations: Seq[PushRegistrationPersist] <- if (updateWriteResult.ok) Future.successful(batch) else Future.failed(new ReactiveMongoException {
+      )
+    }
+
+    def getBatchOrFailed(batch: List[PushRegistrationPersist], updateWriteResult: UpdateWriteResult) = {
+      if (updateWriteResult.ok) Future.successful(batch) else Future.failed(new ReactiveMongoException {
         override def message: String = "failed to fetch incomplete registrations"
       })
+    }
+
+    for (
+      batch <- getIncompleteRegistrationsBatch;
+      updateResult <- setProcessing(batch);
+      incompleteRegistrations <- getBatchOrFailed(batch, updateResult)
     ) yield incompleteRegistrations
   }
 
