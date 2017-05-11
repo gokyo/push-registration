@@ -18,11 +18,15 @@ package controllers
 
 import java.util.UUID
 
+import org.joda.time.Duration
 import play.api.libs.json.{JsValue, Json}
 import play.api.test.FakeRequest
 import play.api.test.Helpers._
+import play.modules.reactivemongo.MongoDbConnection
+import reactivemongo.api.DB
 import reactivemongo.bson.BSONObjectID
 import uk.gov.hmrc.domain.Nino
+import uk.gov.hmrc.lock.LockRepository
 import uk.gov.hmrc.mongo.{DatabaseUpdate, Saved, Updated}
 import uk.gov.hmrc.play.audit.http.connector.{AuditConnector, AuditResult}
 import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
@@ -35,8 +39,8 @@ import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, PushRegistration}
 import uk.gov.hmrc.pushregistration.repository.{PushRegistrationPersist, PushRegistrationRepository}
 import uk.gov.hmrc.pushregistration.services.{LivePushRegistrationService, PushRegistrationService, SandboxPushRegistrationService}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
-
 
 class TestAuthConnector(nino: Option[Nino]) extends AuthConnector {
   override val serviceUrl: String = "someUrl"
@@ -49,9 +53,10 @@ class TestAuthConnector(nino: Option[Nino]) extends AuthConnector {
 }
 
 class TestRepository extends PushRegistrationRepository {
-  var savedRegistration :Option[PushRegistration] = None
-  override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
-    savedRegistration=Some(registration)
+  var savedRegistration: Option[PushRegistration] = None
+
+  override def save(registration: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
+    savedRegistration = Some(registration)
     Future.successful(DatabaseUpdate(null, Saved(PushRegistrationPersist(BSONObjectID.generate, registration.token, authId, registration.device, None))))
   }
 
@@ -64,16 +69,27 @@ class TestRepository extends PushRegistrationRepository {
   override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = ???
 }
 
-class TestPushRegistrationService(testAuthConnector:TestAuthConnector, testRepository:TestRepository, testAuditConnector: AuditConnector) extends LivePushRegistrationService {
+class TestLockRepository(canLock: Boolean = true)(implicit mongo: () => DB) extends LockRepository()(mongo) {
+  override def lock(reqLockId: String, reqOwner: String, forceReleaseAfter: Duration): Future[Boolean] = Future(canLock)
+
+  override def renew(reqLockId: String, reqOwner: String, forceReleaseAfter: Duration): Future[Boolean] = Future(canLock)
+
+  override def releaseLock(reqLockId: String, reqOwner: String): Future[Unit] = Future({})
+
+  override def isLocked(reqLockId: String, reqOwner: String): Future[Boolean] = ???
+}
+
+class TestPushRegistrationService(testAuthConnector: TestAuthConnector, testRepository: TestRepository, testLockRepository: LockRepository, testAuditConnector: AuditConnector) extends LivePushRegistrationService {
   var saveDetails:Map[String, String]=Map.empty
 
-  override def audit(service: String, details: Map[String, String])(implicit hc: HeaderCarrier, ec : ExecutionContext) = {
-    saveDetails=details
+  override def audit(service: String, details: Map[String, String])(implicit hc: HeaderCarrier, ec: ExecutionContext) = {
+    saveDetails = details
     Future.successful(AuditResult.Success)
   }
 
   override val auditConnector = testAuditConnector
-  override val repository = testRepository
+  override val pushRegistrationRepository = testRepository
+  override val lockRepository = testLockRepository
   override val batchSize = 10
 }
 
@@ -81,12 +97,12 @@ class TestAccessCheck(testAuthConnector: TestAuthConnector) extends AccountAcces
   override val authConnector: AuthConnector = testAuthConnector
 }
 
-class TestAccountAccessControlWithAccept(testAccessCheck:AccountAccessControl) extends AccountAccessControlWithHeaderCheck {
+class TestAccountAccessControlWithAccept(testAccessCheck: AccountAccessControl) extends AccountAccessControlWithHeaderCheck {
   override val accessControl: AccountAccessControl = testAccessCheck
 }
 
 
-trait Setup {
+trait Setup extends MongoDbConnection {
   implicit val hc = HeaderCarrier()
   val journeyId = Option(UUID.randomUUID().toString)
 
@@ -103,7 +119,7 @@ trait Setup {
   lazy val registrationWithDeviceJsonBody: JsValue = Json.toJson(registrationWithDevice)
   lazy val tokenToEndpointMapJsonBody: JsValue = Json.toJson(tokenToEndpointMap)
 
-  def fakeRequest(body:JsValue) = FakeRequest(POST, "url").withBody(body)
+  def fakeRequest(body: JsValue) = FakeRequest(POST, "url").withBody(body)
     .withHeaders("Content-Type" -> "application/json")
 
   lazy val emptyRequestWithAcceptHeader = FakeRequest().withHeaders(acceptHeader)
@@ -116,11 +132,12 @@ trait Setup {
 
   lazy val endpointRequest = fakeRequest(tokenToEndpointMapJsonBody).withHeaders(acceptHeader)
 
-  def getRequest(id:Int) = if (id==1) jsonRegistrationRequestTokenOnly else jsonRegistrationRequestTokenAndDevice
-  def getRegistration(id:Int) = if (id==1) registration else registrationWithDevice
+  def getRequest(id: Int) = if (id == 1) jsonRegistrationRequestTokenOnly else jsonRegistrationRequestTokenAndDevice
 
-  def buildAuditCheck(testId:Int) = {
-    Map("token" -> getRegistration(testId).token) ++ getRegistration(testId).device.fold(Map[String,String]()) (item => {
+  def getRegistration(id: Int) = if (id == 1) registration else registrationWithDevice
+
+  def buildAuditCheck(testId: Int) = {
+    Map("token" -> getRegistration(testId).token) ++ getRegistration(testId).device.fold(Map[String, String]())(item => {
       Map("device" -> Json.stringify(Json.toJson(item)))
     })
   }
@@ -129,9 +146,10 @@ trait Setup {
 
   val authConnector = new TestAuthConnector(Some(nino))
   val testRepository = new TestRepository
+  val lockRepository = new TestLockRepository
   val testAccess = new TestAccessCheck(authConnector)
   val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
-  val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository , MicroserviceAuditConnector)
+  val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, lockRepository, MicroserviceAuditConnector)
   val testSandboxPersonalIncomeService = SandboxPushRegistrationService
   val sandboxCompositeAction = AccountAccessControlCheckAccessOff
 }
@@ -148,13 +166,13 @@ trait Success extends Setup {
 trait SuccessUpdated extends Setup {
 
   override val testRepository = new TestRepository {
-    override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
+    override def save(registration: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
       val update = PushRegistrationPersist(BSONObjectID.generate, registration.token, authId, None, None)
-      savedRegistration=Some(registration)
-      Future.successful(DatabaseUpdate(null, Updated(update,update)))
+      savedRegistration = Some(registration)
+      Future.successful(DatabaseUpdate(null, Updated(update, update)))
     }
   }
-  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository , MicroserviceAuditConnector)
+  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, lockRepository, MicroserviceAuditConnector)
 
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService
@@ -166,11 +184,11 @@ trait SuccessUpdated extends Setup {
 trait DbaseFailure extends Setup {
 
   override val testRepository = new TestRepository {
-    override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
+    override def save(registration: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
       Future.failed(new Exception("controlled repository explosion!"))
     }
   }
-  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository , MicroserviceAuditConnector)
+  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, lockRepository, MicroserviceAuditConnector)
 
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService
@@ -182,13 +200,13 @@ trait DbaseFailure extends Setup {
 
 trait AuthWithoutNino extends Setup {
 
-  override val authConnector =  new TestAuthConnector(None) {
+  override val authConnector = new TestAuthConnector(None) {
     override def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = Future.failed(new Upstream4xxResponse("Error", 401, 401))
   }
 
   override val testAccess = new TestAccessCheck(authConnector)
   override val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
-  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, MicroserviceAuditConnector)
+  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, lockRepository, MicroserviceAuditConnector)
 
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService
@@ -199,13 +217,13 @@ trait AuthWithoutNino extends Setup {
 
 trait AuthLowCL extends Setup {
 
-  override val authConnector =  new TestAuthConnector(None) {
+  override val authConnector = new TestAuthConnector(None) {
     override def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = Future.failed(new ForbiddenException("Forbidden"))
   }
 
   override val testAccess = new TestAccessCheck(authConnector)
   override val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
-  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, MicroserviceAuditConnector)
+  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, lockRepository, MicroserviceAuditConnector)
 
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService

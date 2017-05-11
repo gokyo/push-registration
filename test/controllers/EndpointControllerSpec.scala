@@ -56,8 +56,9 @@ class EndpointControllerSpec extends UnitSpec with WithFakeApplication with Scal
       PushRegistration("other-token", Some(Device(Windows, "9.8", "7.6.5", "Grault")), None)
     )
     val testRegisterEndpointsRepository = new TestRegisterEndpointRepository(true, true, authId, registrations)
+    val testLockRepository = new TestLockRepository
 
-    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRegisterEndpointsRepository, MicroserviceAuditConnector)
+    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRegisterEndpointsRepository, testLockRepository, MicroserviceAuditConnector)
 
     val controller = new EndpointController {
       override val service: PushRegistrationService = testPushRegistrationService
@@ -69,8 +70,9 @@ class EndpointControllerSpec extends UnitSpec with WithFakeApplication with Scal
     val authId = "int-id"
     val registrations = Seq(PushRegistration("token", Some(Device(Android, "1.2", "3.4.5", "Quux+")), None))
     val testRegisterEndpointsRepository = new TestRegisterEndpointRepository(true, false, authId, registrations)
+    val testLockRepository = new TestLockRepository
 
-    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRegisterEndpointsRepository, MicroserviceAuditConnector)
+    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRegisterEndpointsRepository, testLockRepository, MicroserviceAuditConnector)
 
     val controller = new EndpointController {
       override val service: PushRegistrationService = testPushRegistrationService

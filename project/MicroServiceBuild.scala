@@ -39,6 +39,7 @@ private object AppDependencies {
   private val wireMockVersion = "2.3.1"
   private val hmrcTestVersion = "2.2.0"
   private val cucumberVersion = "1.2.5"
+  private val mongoLockVersion = "4.1.0"
 
   val compile = Seq(
     ws,
@@ -52,7 +53,8 @@ private object AppDependencies {
     "uk.gov.hmrc" %% "reactive-circuit-breaker" % circuitBreaker,
     "uk.gov.hmrc" %% "play-ui" %  playUI,
     "uk.gov.hmrc" %% "play-hmrc-api" % playHmrcApiVersion,
-    "uk.gov.hmrc" %% "play-reactivemongo" % playReactiveMongo
+    "uk.gov.hmrc" %% "play-reactivemongo" % playReactiveMongo,
+    "uk.gov.hmrc" %% "mongo-lock" % mongoLockVersion
   )
 
   trait TestDependencies {
