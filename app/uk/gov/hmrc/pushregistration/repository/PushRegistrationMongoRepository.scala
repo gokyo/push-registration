@@ -153,10 +153,17 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     ) yield incompleteRegistrations
   }
 
+  // TODO:
+  // The authId must be supplied. If multiple records exist with the same token but different authId's, only
+  // 1 record will be updated, the remaining records will remain in processing mode with no endpoint!
+  // Instead of passing maps will need to encapsulate into object.
   override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = {
+
+    val removeSchedulerProcessingStatus = BSONDocument("$unset" -> BSONDocument("processing" -> ""))
+
     atomicUpdate(
       BSONDocument("token" -> token),
-      BSONDocument("$set" -> BSONDocument("endpoint" -> endpoint))
+      BSONDocument("$set" -> BSONDocument("endpoint" -> endpoint)) ++ removeSchedulerProcessingStatus
     ).map(
       _.exists(!_.writeResult.inError)
     )
@@ -175,6 +182,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
 
     atomicUpsert(findByTokenAndAuthId(registration.token, authId), modifierForInsert(registration, authId))
   }
+
 }
 
 trait PushRegistrationRepository {
@@ -187,4 +195,28 @@ trait PushRegistrationRepository {
   def saveEndpoint(token: String, endpoint: String): Future[Boolean]
 
   def removeToken(token: String): Future[Boolean]
+}
+
+trait PushRegistrationMongoRepositoryTests extends PushRegistrationRepository {
+  def removeAllRecords(): Future[Unit]
+  def findByAuthIdAndToken(authId: String, token:String): Future[Option[PushRegistrationPersist]]
+}
+
+object PushRegistrationRepositoryTest extends MongoDbConnection {
+  lazy val mongo = new PushRegistrationMongoRepositoryTest
+
+  def apply(): PushRegistrationMongoRepositoryTests = mongo
+}
+
+class PushRegistrationMongoRepositoryTest(implicit mongo: () => DB) extends PushRegistrationMongoRepository with PushRegistrationMongoRepositoryTests {
+
+  override def removeAllRecords(): Future[Unit] = {
+    removeAll().map(_ => ())
+  }
+  override def findByAuthIdAndToken(authId: String, token:String): Future[Option[PushRegistrationPersist]] = {
+    collection.
+      find(BSONDocument("authId" -> authId) ++ BSONDocument("token" -> token))
+      .one[PushRegistrationPersist](ReadPreference.primaryPreferred)
+  }
+
 }

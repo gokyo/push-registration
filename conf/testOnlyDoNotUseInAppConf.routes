@@ -11,3 +11,7 @@
 
 # Add all the application routes to the prod.routes file
 ->         /                          prod.Routes
+
+# Test only routes
+GET     /test-only/dropmongo   uk.gov.hmrc.pushregistration.controllers.TestOnlyController.dropMongo()
+GET     /test-only/registration/:authId/:token uk.gov.hmrc.pushregistration.controllers.TestOnlyController.findByEndpointAndToken(authId, token)
