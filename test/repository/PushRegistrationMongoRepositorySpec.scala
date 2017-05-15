@@ -174,6 +174,47 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       otherFound.head.endpoint shouldBe None
     }
 
+    "update endpoints for all authIds that share a token" in new Setup {
+      val someAuthId = "auth-b"
+      val otherAuthId = "auth-a"
+      val yetAnotherAuthId = "auth-c"
+
+      val someEndpoint = "/endpoint/p"
+      val otherEndpoint = "/endpoint/q"
+      val yetAnotherEndpoint = "/endpoint/r"
+
+      await {
+        repository.save(registrationWithDeviceAndroid, someAuthId)
+        repository.save(registrationWithDeviceAndroid, otherAuthId)
+        repository.save(registrationWithDeviceiOS, otherAuthId)
+        repository.save(registrationWithDeviceWindows, yetAnotherAuthId)
+      }
+
+      val sharedDeviceUpdated: Boolean = await(repository.saveEndpoint(registrationWithDeviceAndroid.token, someEndpoint))
+      val iosDeviceUpdated: Boolean = await(repository.saveEndpoint(registrationWithDeviceiOS.token, otherEndpoint))
+      val winDeviceUpdated: Boolean = await(repository.saveEndpoint(registrationWithDeviceWindows.token, yetAnotherEndpoint))
+
+      sharedDeviceUpdated shouldBe true
+      iosDeviceUpdated shouldBe true
+      winDeviceUpdated shouldBe true
+
+      val someAuthIdRegistrations: Seq[PushRegistrationPersist] = await(repository.findByAuthId(someAuthId))
+      val otherAuthIdRegistrations: Seq[PushRegistrationPersist] = await(repository.findByAuthId(otherAuthId))
+      val yetAnotherAuthIdRegistrations: Seq[PushRegistrationPersist] = await(repository.findByAuthId(yetAnotherAuthId))
+
+      val someAuthIdEndpoints: Seq[String] = someAuthIdRegistrations.map(_.endpoint.getOrElse(fail("should have endpoint")))
+      val otherAuthIdEndpoints: Seq[String] = otherAuthIdRegistrations.map(_.endpoint.getOrElse(fail("should have endpoint")))
+      val yetAnotherAuthIdEndpoints: Seq[String] = yetAnotherAuthIdRegistrations.map(_.endpoint.getOrElse(fail("should have endpoint")))
+
+      someAuthIdEndpoints.size shouldBe 1
+      otherAuthIdEndpoints.size shouldBe 2
+      yetAnotherAuthIdEndpoints.size shouldBe 1
+
+      someAuthIdEndpoints.head shouldBe someEndpoint
+      otherAuthIdEndpoints should contain allElementsOf Seq(someEndpoint, otherEndpoint)
+      yetAnotherAuthIdEndpoints.head shouldBe yetAnotherEndpoint
+    }
+
     "throw an exception when attempting to create(!) an endpoint with endpoint" in new Setup {
       val result = intercept[ReactiveMongoException] {
         repository.save(PushRegistration("token", Some(deviceAndroid), Some("/endpoint")), "id")

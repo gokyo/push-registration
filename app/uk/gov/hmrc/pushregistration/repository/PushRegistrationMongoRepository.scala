@@ -153,19 +153,17 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     ) yield incompleteRegistrations
   }
 
-  // TODO:
-  // The authId must be supplied. If multiple records exist with the same token but different authId's, only
-  // 1 record will be updated, the remaining records will remain in processing mode with no endpoint!
-  // Instead of passing maps will need to encapsulate into object.
   override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = {
 
     val removeSchedulerProcessingStatus = BSONDocument("$unset" -> BSONDocument("processing" -> ""))
 
-    atomicUpdate(
+    collection.update(
       BSONDocument("token" -> token),
-      BSONDocument("$set" -> BSONDocument("endpoint" -> endpoint)) ++ removeSchedulerProcessingStatus
+      BSONDocument("$set" -> BSONDocument("endpoint" -> endpoint)) ++ removeSchedulerProcessingStatus,
+      upsert = false,
+      multi = true
     ).map(
-      _.exists(!_.writeResult.inError)
+      _.nModified > 0
     )
   }
 
