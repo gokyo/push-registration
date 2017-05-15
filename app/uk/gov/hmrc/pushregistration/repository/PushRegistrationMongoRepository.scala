@@ -153,6 +153,8 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     ) yield incompleteRegistrations
   }
 
+  // Note: In cases where multiple records exist with the same token, but different authId's,
+  //       all records will be updated regardless of their processing state.
   override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = {
 
     val removeSchedulerProcessingStatus = BSONDocument("$unset" -> BSONDocument("processing" -> ""))
