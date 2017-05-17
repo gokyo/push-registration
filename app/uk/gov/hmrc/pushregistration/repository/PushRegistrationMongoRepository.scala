@@ -121,7 +121,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   }
 
   override def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]] = {
-    def getIncompleteRegistrationsBatch = {
+    def incompleteRegistrations = {
       collection.find(BSONDocument("$and" -> BSONArray(
         BSONDocument("endpoint" -> BSONDocument("$exists" -> false)),
         BSONDocument("processing" -> BSONDocument("$exists" -> false)),
@@ -131,26 +131,20 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
         collect[List](maxRows)
     }
 
-    def setProcessing(batch: List[PushRegistrationPersist]) = {
-      collection.update(
-        BSONDocument("_id" -> BSONDocument("$in" -> batch.foldLeft(BSONArray())((a, p) => a.add(p.id)))),
-        BSONDocument("$set" -> BSONDocument("processing" -> BSONDateTime(DateTimeUtils.now.getMillis))),
-        upsert = false,
-        multi = true
-      )
+    processBatch(incompleteRegistrations)
+  }
+
+  override def findTimedOutRegistrations(timeoutMilliseconds: Long, maxRows: Int): Future[Seq[PushRegistrationPersist]] = {
+    def timedOutRegistrations = {
+      collection.find(BSONDocument("$and" -> BSONArray(
+        BSONDocument("endpoint" -> BSONDocument("$exists" -> false)),
+        BSONDocument("processing" -> BSONDocument("$lt" -> BSONDateTime(DateTimeUtils.now.getMillis - timeoutMilliseconds)))
+      ))).
+        sort(Json.obj("created" -> JsNumber(-1))).cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
+        collect[List](maxRows)
     }
 
-    def getBatchOrFailed(batch: List[PushRegistrationPersist], updateWriteResult: UpdateWriteResult) = {
-      if (updateWriteResult.ok) Future.successful(batch) else Future.failed(new ReactiveMongoException {
-        override def message: String = "failed to fetch incomplete registrations"
-      })
-    }
-
-    for (
-      batch <- getIncompleteRegistrationsBatch;
-      updateResult <- setProcessing(batch);
-      incompleteRegistrations <- getBatchOrFailed(batch, updateResult)
-    ) yield incompleteRegistrations
+    processBatch(timedOutRegistrations)
   }
 
   // Note: In cases where multiple records exist with the same token, but different authId's,
@@ -183,6 +177,29 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     atomicUpsert(findByTokenAndAuthId(registration.token, authId), modifierForInsert(registration, authId))
   }
 
+  private def processBatch(batch: Future[List[PushRegistrationPersist]]): Future[Seq[PushRegistrationPersist]] = {
+    def setProcessing(batch: List[PushRegistrationPersist]) = {
+      collection.update(
+        BSONDocument("_id" -> BSONDocument("$in" -> batch.foldLeft(BSONArray())((a, p) => a.add(p.id)))),
+        BSONDocument("$set" -> BSONDocument("processing" -> BSONDateTime(DateTimeUtils.now.getMillis))),
+        upsert = false,
+        multi = true
+      )
+    }
+
+    def getBatchOrFailed(batch: List[PushRegistrationPersist], updateWriteResult: UpdateWriteResult) = {
+      if (updateWriteResult.ok) Future.successful(batch) else Future.failed(new ReactiveMongoException {
+        override def message: String = "failed to fetch incomplete registrations"
+      })
+    }
+
+    for (
+      registrations <- batch;
+      updateResult <- setProcessing(registrations);
+      incompleteRegistrations <- getBatchOrFailed(registrations, updateResult)
+    ) yield incompleteRegistrations
+  }
+
 }
 
 trait PushRegistrationRepository {
@@ -191,6 +208,8 @@ trait PushRegistrationRepository {
   def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]]
 
   def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]]
+
+  def findTimedOutRegistrations(timeoutMilliseconds: Long, maxRows: Int): Future[Seq[PushRegistrationPersist]]
 
   def saveEndpoint(token: String, endpoint: String): Future[Boolean]
 

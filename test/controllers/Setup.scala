@@ -67,6 +67,8 @@ class TestRepository extends PushRegistrationRepository {
   override def removeToken(token: String): Future[Boolean] = ???
 
   override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = ???
+
+  override def findTimedOutRegistrations(timeoutMilliseconds: Long, maxRows: Int): Future[Seq[PushRegistrationPersist]] = ???
 }
 
 class TestLockRepository(canLock: Boolean = true)(implicit mongo: () => DB) extends LockRepository()(mongo) {
