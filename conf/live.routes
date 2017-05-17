@@ -3,9 +3,11 @@ POST    /push/registration          uk.gov.hmrc.pushregistration.controllers.Liv
 
 GET     /push/registration/:id      uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController.find(id:String, journeyId: Option[String])
 
-GET     /push/endpoint          uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController.findIncompleteRegistrations()
+GET     /push/endpoint/incomplete   uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController.findIncompleteRegistrations()
 
-POST    /push/endpoint          uk.gov.hmrc.pushregistration.controllers.EndpointController.registerEndpoints()
+GET     /push/endpoint/timedout     uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController.findTimedOutRegistrations()
 
-GET     /push/endpoint/:id      uk.gov.hmrc.pushregistration.controllers.EndpointController.getEndpointsWithNativeOsForAuthId(id:String)
+POST    /push/endpoint              uk.gov.hmrc.pushregistration.controllers.EndpointController.registerEndpoints()
+
+GET     /push/endpoint/:id          uk.gov.hmrc.pushregistration.controllers.EndpointController.getEndpointsWithNativeOsForAuthId(id:String)
 
