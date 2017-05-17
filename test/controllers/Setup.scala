@@ -93,6 +93,7 @@ class TestPushRegistrationService(testAuthConnector: TestAuthConnector, testRepo
   override val pushRegistrationRepository = testRepository
   override val lockRepository = testLockRepository
   override val batchSize = 10
+  override val timeoutMillis = 60000L
 }
 
 class TestAccessCheck(testAuthConnector: TestAuthConnector) extends AccountAccessControl {

@@ -59,6 +59,8 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
     override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
 
     override def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
+
+    override def findTimedOutRegistrations(timeout: Long, maxRows: Int): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
   }
 
   trait Success extends Setup {
@@ -185,6 +187,34 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
     "return 503 service unavailable when the lock cannot be obtained" in new LockFailed {
       val result: Result = await(controller.findIncompleteRegistrations()(emptyRequestWithAcceptHeader))
+
+      status(result) shouldBe 503
+      jsonBodyOf(result) shouldBe Json.parse("""{"code":"SERVICE_UNAVAILABLE","message":"Failed to obtain lock"}""")
+    }
+
+  }
+
+
+  "findTimedOutRegistrations PushNotificationController" should {
+
+    "find timed-out tokens and return 200 success and Json" in new Incomplete {
+      val result: Result = await(controller.findTimedOutRegistrations()(emptyRequestWithAcceptHeader))
+
+      status(result) shouldBe 200
+      contentAsJson(result) shouldBe Json.toJson(Seq(foundIncompleteRegistration))
+
+    }
+
+    "return 404 not found when there are no timed-out tokens" in new NotFoundResult {
+      val result: Result = await(controller.findTimedOutRegistrations()(emptyRequestWithAcceptHeader))
+
+      status(result) shouldBe 404
+      contentAsJson(result) shouldBe Json.parse("""{"code":"NOT_FOUND","message":"No unregistered endpoints"}""")
+
+    }
+
+    "return 503 service unavailable when the lock cannot be obtained" in new LockFailed {
+      val result: Result = await(controller.findTimedOutRegistrations()(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 503
       jsonBodyOf(result) shouldBe Json.parse("""{"code":"SERVICE_UNAVAILABLE","message":"Failed to obtain lock"}""")
