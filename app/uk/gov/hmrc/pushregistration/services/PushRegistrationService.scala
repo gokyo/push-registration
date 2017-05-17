@@ -43,12 +43,16 @@ trait PushRegistrationService {
 
   def findIncompleteRegistrations(): Future[Option[Seq[PushRegistration]]]
 
+  def findTimedOutRegistrations(): Future[Option[Seq[PushRegistration]]]
+
   def registerEndpoints(endpoints: Map[String, Option[String]]): Future[Boolean]
 }
 
 trait LivePushRegistrationService extends PushRegistrationService with Auditor {
 
   val batchSize: Int
+
+  val timeoutMillis: Long
 
   def pushRegistrationRepository: PushRegistrationRepository
 
@@ -58,6 +62,14 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
     override def repo: LockRepository = lockRepository
 
     override def lockId: String = "findIncompleteRegistrations"
+
+    override val forceLockReleaseAfter: Duration = Duration.standardMinutes(2)
+  }
+
+  val findTimedOutLockKeeper = new LockKeeper {
+    override def repo: LockRepository = lockRepository
+
+    override def lockId: String = "findTimedOutRegistrations"
 
     override val forceLockReleaseAfter: Duration = Duration.standardMinutes(2)
   }
@@ -88,6 +100,15 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
       pushRegistrationRepository.findIncompleteRegistrations(batchSize).map { item => item.map(row => PushRegistration(row.token, row.device, None)) }.
         andThen { case batch =>
           Logger.info(s"asked for $batchSize incomplete registrations; got ${batch.getOrElse(Seq.empty).size}")
+        }
+    }
+  }
+
+  override def findTimedOutRegistrations(): Future[Option[Seq[PushRegistration]]] = {
+    findTimedOutLockKeeper.tryLock {
+      pushRegistrationRepository.findTimedOutRegistrations(timeoutMillis, batchSize).map { item => item.map(row => PushRegistration(row.token, row.device, None)) }.
+        andThen { case batch =>
+          Logger.info(s"asked for $batchSize timed-out registrations; got ${batch.getOrElse(Seq.empty).size}")
         }
     }
   }
@@ -123,12 +144,17 @@ object SandboxPushRegistrationService extends PushRegistrationService with FileR
   override def findIncompleteRegistrations(): Future[Option[Seq[PushRegistration]]] =
     Future.successful(Some(someTokens))
 
+  override def findTimedOutRegistrations(): Future[Option[Seq[PushRegistration]]] =
+  Future.successful(Some(someTokens))
+
   override def registerEndpoints(endpoints: Map[String, Option[String]]): Future[Boolean] =
     Future.successful(false)
 }
 
 object LivePushRegistrationService extends LivePushRegistrationService with ServicesConfig with MongoDbConnection {
   override val batchSize: Int = getInt("unregisteredBatchSize")
+
+  override val timeoutMillis: Long = getInt("timeoutSeconds") * 1000
 
   override val auditConnector = MicroserviceAuditConnector
 

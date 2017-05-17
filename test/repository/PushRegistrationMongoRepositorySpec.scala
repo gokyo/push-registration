@@ -297,6 +297,30 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       result.size shouldBe someLimit
     }
 
+    "return registrations that were not processed within a timeout period" in new Setup {
+      await {
+        repository.save(registrationWithDeviceAndroid, "auth-a")
+        repository.save(registrationWithDeviceiOS, "auth-b")
+        repository.save(registrationWithDeviceWindows, "auth-c")
+      }
+
+      var allSaved = await(repository.findIncompleteRegistrations(maxRows))
+
+      allSaved.size shouldBe 3
+
+      val saved = await(repository.saveEndpoint(registrationWithDeviceiOS.token, "/some/end/point"))
+
+      saved shouldBe true
+
+      val timeoutMillis = 1
+
+      val incomplete = await(repository.findTimedOutRegistrations(timeoutMillis, maxRows))
+
+      incomplete.size shouldBe 2
+
+      incomplete.map(_.token) should contain allOf(registrationWithDeviceAndroid.token, registrationWithDeviceWindows.token)
+    }
+
     "remove tokens" in new Setup {
       await {
         repository.save(registrationWithDeviceAndroid, "auth-a")

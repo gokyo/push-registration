@@ -22,9 +22,10 @@ import uk.gov.hmrc.api.controllers.HeaderValidator
 import uk.gov.hmrc.play.http.HeaderCarrier
 import uk.gov.hmrc.play.microservice.controller.BaseController
 import uk.gov.hmrc.pushregistration.controllers.action.AccountAccessControlWithHeaderCheck
+import uk.gov.hmrc.pushregistration.domain.PushRegistration
 import uk.gov.hmrc.pushregistration.services.{LivePushRegistrationService, PushRegistrationService}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 trait FindPushRegistrationController extends BaseController with HeaderValidator with ErrorHandling {
   val NoUnregisteredEndpoints: JsValue = Json.parse("""{"code":"NOT_FOUND","message":"No unregistered endpoints"}""")
@@ -42,10 +43,14 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
       })
   }
 
-  def findIncompleteRegistrations() = Action.async {
+  def findIncompleteRegistrations() = findRegistrations(service.findIncompleteRegistrations())
+
+  def findTimedOutRegistrations() = findRegistrations(service.findTimedOutRegistrations())
+
+  private def findRegistrations(f: => Future[Option[Seq[PushRegistration]]]) = Action.async {
     implicit request =>
       implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
-      errorWrapper(service.findIncompleteRegistrations().map {
+      errorWrapper(f.map {
         _.map {
           registrations =>
             if (registrations.isEmpty) NotFound(NoUnregisteredEndpoints) else Ok(Json.toJson(registrations))
