@@ -40,6 +40,7 @@ private object AppDependencies {
   private val hmrcTestVersion = "2.2.0"
   private val cucumberVersion = "1.2.5"
   private val mongoLockVersion = "4.1.0"
+  private val reactiveMongoJson = "0.12.4"
 
   val compile = Seq(
     ws,
@@ -73,7 +74,8 @@ private object AppDependencies {
         "com.github.tomakehurst" % "wiremock" % wireMockVersion % "test,it",
         "info.cukes" %% "cucumber-scala" % cucumberVersion % "test,it",
         "info.cukes" % "cucumber-junit" % cucumberVersion % "test,it",
-        "uk.gov.hmrc" %% "reactivemongo-test" % reactiveMongoTest % scope
+        "uk.gov.hmrc" %% "reactivemongo-test" % reactiveMongoTest % scope,
+        "org.reactivemongo" %% "reactivemongo-play-json" % reactiveMongoJson % "test,it"
       )
     }.test
   }
