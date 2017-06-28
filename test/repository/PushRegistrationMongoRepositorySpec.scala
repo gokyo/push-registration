@@ -18,7 +18,10 @@ package repository
 
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
+import play.api.libs.json.{JsObject, Json}
+import reactivemongo.api.ReadPreference
 import reactivemongo.bson.BSONObjectID
+import reactivemongo.play.json._
 import reactivemongo.core.errors.{DatabaseException, ReactiveMongoException}
 import uk.gov.hmrc.mongo.{DatabaseUpdate, MongoSpecSupport, Saved, Updated}
 import uk.gov.hmrc.play.test.UnitSpec
@@ -172,6 +175,17 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
       found.head.endpoint shouldBe Some(someEndpoint)
       otherFound.head.endpoint shouldBe None
+
+      val raw = await(repository.collection.
+        find(Json.obj("authId" -> someAuthId)).
+        cursor[JsObject](ReadPreference.primary).headOption).getOrElse(fail("should have found raw document"))
+
+      val endpoint = (raw \ "endpoint").as[String]
+      val created = (raw \ "created" \ "$date").as[Long]
+      val updated = (raw \ "updated" \ "$date").as[Long]
+
+      endpoint shouldBe someEndpoint
+      created should be < updated
     }
 
     "update endpoints for all authIds that share a token" in new Setup {

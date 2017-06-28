@@ -151,11 +151,11 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   //       all records will be updated regardless of their processing state.
   override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = {
 
-    val removeSchedulerProcessingStatus = BSONDocument("$unset" -> BSONDocument("processing" -> ""))
-
     collection.update(
       BSONDocument("token" -> token),
-      BSONDocument("$set" -> BSONDocument("endpoint" -> endpoint)) ++ removeSchedulerProcessingStatus,
+      BSONDocument(
+        "$set" -> BSONDocument("endpoint" -> endpoint, "updated" -> BSONDateTime(DateTimeUtils.now.getMillis)),
+        "$unset" -> BSONDocument("processing" -> "")),
       upsert = false,
       multi = true
     ).map(
