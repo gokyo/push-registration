@@ -18,8 +18,11 @@ package repository
 
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
+import play.api.libs.json.{JsObject, JsUndefined, Json}
+import reactivemongo.api.ReadPreference
 import reactivemongo.bson.BSONObjectID
 import reactivemongo.core.errors.{DatabaseException, ReactiveMongoException}
+import reactivemongo.play.json._
 import uk.gov.hmrc.mongo.{DatabaseUpdate, MongoSpecSupport, Saved, Updated}
 import uk.gov.hmrc.play.test.UnitSpec
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, PushRegistration}
@@ -156,10 +159,8 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       val someEndpoint = "/endpoint/b"
       val otherEndpoint = "/endpoint/c"
 
-      await {
-        repository.save(registrationWithDeviceAndroid, someAuthId)
-        repository.save(registrationWithDeviceiOS, otherAuthId)
-      }
+      await(repository.save(registrationWithDeviceAndroid, someAuthId))
+      await(repository.save(registrationWithDeviceiOS, otherAuthId))
 
       val updatedOk: Boolean = await(repository.saveEndpoint(registrationWithDeviceAndroid.token, someEndpoint))
       val updateNotFound: Boolean = await(repository.saveEndpoint(registrationWithDeviceWindows.token, otherEndpoint))
@@ -172,6 +173,28 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
       found.head.endpoint shouldBe Some(someEndpoint)
       otherFound.head.endpoint shouldBe None
+
+      val complete = await(repository.collection.
+        find(Json.obj("authId" -> someAuthId)).
+        cursor[JsObject](ReadPreference.primary).headOption).getOrElse(fail("should have found document"))
+
+      val completeEndpoint = (complete \ "endpoint").as[String]
+      val completeCreated = (complete \ "created" \ "$date").as[Long]
+      val completeUpdated = (complete \ "updated" \ "$date").as[Long]
+
+      completeEndpoint shouldBe someEndpoint
+      completeCreated should be < completeUpdated
+
+      val incomplete = await(repository.collection.
+        find(Json.obj("authId" -> otherAuthId)).
+        cursor[JsObject](ReadPreference.primary).headOption).getOrElse(fail("should have found document"))
+
+      val incompleteEndpoint = incomplete \ "endpoint"
+      val incompleteCreated = (incomplete \ "created" \ "$date").as[Long]
+      val incompleteUpdated = (incomplete \ "updated" \ "$date").as[Long]
+
+      incompleteEndpoint shouldBe a[JsUndefined]
+      incompleteCreated shouldBe incompleteUpdated
     }
 
     "update endpoints for all authIds that share a token" in new Setup {
@@ -183,12 +206,10 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       val otherEndpoint = "/endpoint/q"
       val yetAnotherEndpoint = "/endpoint/r"
 
-      await {
-        repository.save(registrationWithDeviceAndroid, someAuthId)
-        repository.save(registrationWithDeviceAndroid, otherAuthId)
-        repository.save(registrationWithDeviceiOS, otherAuthId)
-        repository.save(registrationWithDeviceWindows, yetAnotherAuthId)
-      }
+      await(repository.save(registrationWithDeviceAndroid, someAuthId))
+      await(repository.save(registrationWithDeviceAndroid, otherAuthId))
+      await(repository.save(registrationWithDeviceiOS, otherAuthId))
+      await(repository.save(registrationWithDeviceWindows, yetAnotherAuthId))
 
       val sharedDeviceUpdated: Boolean = await(repository.saveEndpoint(registrationWithDeviceAndroid.token, someEndpoint))
       val iosDeviceUpdated: Boolean = await(repository.saveEndpoint(registrationWithDeviceiOS.token, otherEndpoint))
@@ -224,11 +245,9 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
     }
 
     "find a batch of tokens that do not have associated endpoints" in new Setup {
-      await {
-        repository.save(registrationWithDeviceAndroid, "auth-a")
-        repository.save(registrationWithDeviceiOS, "auth-b")
-        repository.save(registrationWithDeviceWindows, "auth-c")
-      }
+      await(repository.save(registrationWithDeviceAndroid, "auth-a"))
+      await(repository.save(registrationWithDeviceiOS, "auth-b"))
+      await(repository.save(registrationWithDeviceWindows, "auth-c"))
 
       await(repository.saveEndpoint(registrationWithDeviceAndroid.token, "/some/endpoint/arn"))
 
@@ -238,10 +257,8 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
     }
 
     "not return tokens for which the device is not known" in new Setup {
-      await {
-        repository.save(registrationUnknownDevice, "auth-a")
-        repository.save(registrationWithDeviceiOS, "auth-b")
-      }
+      await(repository.save(registrationUnknownDevice, "auth-a"))
+      await(repository.save(registrationWithDeviceiOS, "auth-b"))
 
       val result: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(maxRows))
 
@@ -250,16 +267,12 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
     }
 
     "not return tokens that have associated endpoints" in new Setup {
-      await {
-        repository.save(registrationWithDeviceAndroid, "auth-a")
-        repository.save(registrationWithDeviceiOS, "auth-b")
-        repository.save(registrationWithDeviceWindows, "auth-c")
-      }
+      await(repository.save(registrationWithDeviceAndroid, "auth-a"))
+      await(repository.save(registrationWithDeviceiOS, "auth-b"))
+      await(repository.save(registrationWithDeviceWindows, "auth-c"))
 
-      await {
-        repository.saveEndpoint(registrationWithDeviceAndroid.token, "/some/endpoint/a")
-        repository.saveEndpoint(registrationWithDeviceWindows.token, "/some/endpoint/c")
-      }
+      await(repository.saveEndpoint(registrationWithDeviceAndroid.token, "/some/endpoint/a"))
+      await(repository.saveEndpoint(registrationWithDeviceWindows.token, "/some/endpoint/c"))
 
       val result: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(maxRows))
 
@@ -268,9 +281,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
     }
 
     "not return tokens that were previously returned but don't yet have associated endpoints" in new Setup {
-      await {
-        repository.save(registrationWithDeviceAndroid, "auth-a")
-      }
+      await(repository.save(registrationWithDeviceAndroid, "auth-a"))
 
       val first: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(maxRows))
 
@@ -281,10 +292,10 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       second.size shouldBe 0
     }
 
-     "return only max-limit tokens when there are more than max-limit tokens that do not have associated endpoints" in new Setup {
+    "return only max-limit tokens when there are more than max-limit tokens that do not have associated endpoints" in new Setup {
       val someLimit = 10
 
-      await{
+      await {
         Future.sequence((1 to someLimit + 1).map(i => repository.save(registrationWithDeviceiOS, s"auth-$i")))
       }
 
@@ -298,11 +309,9 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
     }
 
     "return registrations that were not processed within a timeout period" in new Setup {
-      await {
-        repository.save(registrationWithDeviceAndroid, "auth-a")
-        repository.save(registrationWithDeviceiOS, "auth-b")
-        repository.save(registrationWithDeviceWindows, "auth-c")
-      }
+      await(repository.save(registrationWithDeviceAndroid, "auth-a"))
+      await(repository.save(registrationWithDeviceiOS, "auth-b"))
+      await(repository.save(registrationWithDeviceWindows, "auth-c"))
 
       var allSaved = await(repository.findIncompleteRegistrations(maxRows))
 
@@ -322,11 +331,9 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
     }
 
     "remove tokens" in new Setup {
-      await {
-        repository.save(registrationWithDeviceAndroid, "auth-a")
-        repository.save(registrationWithDeviceiOS, "auth-b")
-        repository.save(registrationWithDeviceWindows, "auth-c")
-      }
+      await(repository.save(registrationWithDeviceAndroid, "auth-a"))
+      await(repository.save(registrationWithDeviceiOS, "auth-b"))
+      await(repository.save(registrationWithDeviceWindows, "auth-c"))
 
       val result: Boolean = await(repository.removeToken(registrationWithDeviceAndroid.token))
 

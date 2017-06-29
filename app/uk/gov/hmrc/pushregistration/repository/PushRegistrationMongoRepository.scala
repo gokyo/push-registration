@@ -94,11 +94,12 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   protected def findByTokenAndAuthId(token: String, authId: String) = BSONDocument("token" -> BSONString(token), "authId" -> authId)
 
   private def modifierForInsert(registration: PushRegistration, authId: String): BSONDocument = {
+    val now = BSONDateTime(DateTimeUtils.now.getMillis)
     val tokenAndDate = BSONDocument(
       "$setOnInsert" -> BSONDocument("token" -> registration.token),
       "$setOnInsert" -> BSONDocument("authId" -> authId),
-      "$setOnInsert" -> BSONDocument("created" -> BSONDateTime(DateTimeUtils.now.getMillis)),
-      "$set" -> BSONDocument("updated" -> BSONDateTime(DateTimeUtils.now.getMillis))
+      "$setOnInsert" -> BSONDocument("created" -> now),
+      "$set" -> BSONDocument("updated" -> now)
     )
 
     val deviceFields = registration.device.fold(BSONDocument.empty) { device =>
@@ -151,11 +152,11 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   //       all records will be updated regardless of their processing state.
   override def saveEndpoint(token: String, endpoint: String): Future[Boolean] = {
 
-    val removeSchedulerProcessingStatus = BSONDocument("$unset" -> BSONDocument("processing" -> ""))
-
     collection.update(
       BSONDocument("token" -> token),
-      BSONDocument("$set" -> BSONDocument("endpoint" -> endpoint)) ++ removeSchedulerProcessingStatus,
+      BSONDocument(
+        "$set" -> BSONDocument("endpoint" -> endpoint, "updated" -> BSONDateTime(DateTimeUtils.now.getMillis)),
+        "$unset" -> BSONDocument("processing" -> "")),
       upsert = false,
       multi = true
     ).map(
