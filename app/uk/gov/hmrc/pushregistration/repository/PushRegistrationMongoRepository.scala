@@ -94,11 +94,12 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   protected def findByTokenAndAuthId(token: String, authId: String) = BSONDocument("token" -> BSONString(token), "authId" -> authId)
 
   private def modifierForInsert(registration: PushRegistration, authId: String): BSONDocument = {
+    val now = BSONDateTime(DateTimeUtils.now.getMillis)
     val tokenAndDate = BSONDocument(
       "$setOnInsert" -> BSONDocument("token" -> registration.token),
       "$setOnInsert" -> BSONDocument("authId" -> authId),
-      "$setOnInsert" -> BSONDocument("created" -> BSONDateTime(DateTimeUtils.now.getMillis)),
-      "$set" -> BSONDocument("updated" -> BSONDateTime(DateTimeUtils.now.getMillis))
+      "$setOnInsert" -> BSONDocument("created" -> now),
+      "$set" -> BSONDocument("updated" -> now)
     )
 
     val deviceFields = registration.device.fold(BSONDocument.empty) { device =>
