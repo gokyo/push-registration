@@ -77,13 +77,13 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
         collection.indexesManager.ensure(
           Index(Seq("updated" -> IndexType.Ascending), name = Some("updatedNotUnique"), unique = false)),
         collection.indexesManager.ensure(
+          Index(Seq("processing" -> IndexType.Ascending), name = Some("processingNotUnique"), unique = false)),
+        collection.indexesManager.ensure(
           Index(Seq("authId" -> IndexType.Ascending), name = Some("authIdNotUnique"), unique = false)),
         collection.indexesManager.ensure(
           Index(Seq("device.os" -> IndexType.Ascending), name = Some("osNotUnique"), unique = false, sparse = true)),
         collection.indexesManager.ensure(
-          Index(Seq("device.appVersion" -> IndexType.Ascending), name = Some("appVersionNotUnique"), unique = false, sparse = true)),
-        collection.indexesManager.ensure(
-          Index(Seq("device.model" -> IndexType.Ascending), name = Some("modelNotUnique"), unique = false, sparse = true))
+          Index(Seq("endpoint" -> IndexType.Ascending), name = Some("endpointNotUnique"), unique = false))
       )
     )
   }
@@ -128,7 +128,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
         BSONDocument("processing" -> BSONDocument("$exists" -> false)),
         BSONDocument("device.os" -> BSONDocument("$exists" -> true))
       ))).
-        sort(Json.obj("created" -> JsNumber(-1))).cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
+        sort(Json.obj("created" -> JsNumber(1))).cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
         collect[List](maxRows)
     }
 
@@ -141,7 +141,7 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
         BSONDocument("endpoint" -> BSONDocument("$exists" -> false)),
         BSONDocument("processing" -> BSONDocument("$lt" -> BSONDateTime(DateTimeUtils.now.getMillis - timeoutMilliseconds)))
       ))).
-        sort(Json.obj("created" -> JsNumber(-1))).cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
+        sort(Json.obj("created" -> JsNumber(1))).cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
         collect[List](maxRows)
     }
 

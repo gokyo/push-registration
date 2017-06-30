@@ -244,7 +244,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       result.message should include("use saveEndpoint() instead")
     }
 
-    "find a batch of tokens that do not have associated endpoints" in new Setup {
+    "find a batch of tokens that do not have associated endpoints, oldest first" in new Setup {
       await(repository.save(registrationWithDeviceAndroid, "auth-a"))
       await(repository.save(registrationWithDeviceiOS, "auth-b"))
       await(repository.save(registrationWithDeviceWindows, "auth-c"))
@@ -254,6 +254,9 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       val result: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(maxRows))
 
       result.size shouldBe 2
+
+      result.head.authId shouldBe "auth-b"
+      result(1).authId shouldBe "auth-c"
     }
 
     "not return tokens for which the device is not known" in new Setup {
@@ -308,7 +311,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       result.size shouldBe someLimit
     }
 
-    "return registrations that were not processed within a timeout period" in new Setup {
+    "return registrations that were not processed within a timeout period, oldest first" in new Setup {
       await(repository.save(registrationWithDeviceAndroid, "auth-a"))
       await(repository.save(registrationWithDeviceiOS, "auth-b"))
       await(repository.save(registrationWithDeviceWindows, "auth-c"))
@@ -321,13 +324,16 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
       saved shouldBe true
 
-      val timeoutMillis = 1
+      Thread sleep 100
+
+      val timeoutMillis = 25
 
       val incomplete = await(repository.findTimedOutRegistrations(timeoutMillis, maxRows))
 
       incomplete.size shouldBe 2
 
-      incomplete.map(_.token) should contain allOf(registrationWithDeviceAndroid.token, registrationWithDeviceWindows.token)
+      incomplete.head.authId shouldBe "auth-a"
+      incomplete(1).authId shouldBe "auth-c"
     }
 
     "remove tokens" in new Setup {
