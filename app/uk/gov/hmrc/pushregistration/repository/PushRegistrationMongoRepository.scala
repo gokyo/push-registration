@@ -16,15 +16,19 @@
 
 package uk.gov.hmrc.pushregistration.repository
 
+import com.sun.java.swing.plaf.windows.resources.windows
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.modules.reactivemongo.MongoDbConnection
+import reactivemongo.api.BSONSerializationPack.Document
 import reactivemongo.api.commands.UpdateWriteResult
 import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.api.{DB, ReadPreference}
 import reactivemongo.bson._
+import reactivemongo.core.commands.Count
 import reactivemongo.core.errors.ReactiveMongoException
+import reactivemongo.json.collection.JSONBatchCommands.JSONCountCommand
 import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
 import uk.gov.hmrc.mongo.{AtomicUpdate, BSONBuilderHelpers, DatabaseUpdate, ReactiveRepository}
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, OS, PushRegistration}
@@ -178,6 +182,23 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     atomicUpsert(findByTokenAndAuthId(registration.token, authId), modifierForInsert(registration, authId))
   }
 
+  override def countIncompleteRegistrations: Future[Map[String,Int]] = {
+
+    val incompleteiOS: Option[collection.pack.Document] = Some(Json.obj("$and" -> Json.arr(Json.obj("endpoint" -> Json.obj("$exists" -> false)), Json.obj("device.os" -> 1))))
+    val incompleteAndroid: Option[collection.pack.Document] = Some(Json.obj("$and" -> Json.arr(Json.obj("endpoint" -> Json.obj("$exists" -> false)), Json.obj("device.os" -> 2))))
+    val incompleteWindows: Option[collection.pack.Document] = Some(Json.obj("$and" -> Json.arr(Json.obj("endpoint" -> Json.obj("$exists" -> false)), Json.obj("device.os" -> 3))))
+    val incompleteUnknown: Option[collection.pack.Document] = Some(Json.obj("$and" -> Json.arr(Json.obj("endpoint" -> Json.obj("$exists" -> false)), Json.obj("device.os" -> Json.obj("$exists" -> false)))))
+
+    val counts: Future[(Int, Int, Int, Int)] = for (
+      ios <- collection.count(incompleteiOS);
+      android <- collection.count(incompleteAndroid);
+      windows <- collection.count(incompleteWindows);
+      unknown <- collection.count(incompleteUnknown)
+    ) yield (ios, android, windows, unknown)
+
+    counts.map(c => Map("ios" -> c._1, "android" -> c._2, "windows" -> c._3, "unknown" -> c._4))
+  }
+
   private def processBatch(batch: Future[List[PushRegistrationPersist]]): Future[Seq[PushRegistrationPersist]] = {
     def setProcessing(batch: List[PushRegistrationPersist]) = {
       collection.update(
@@ -215,6 +236,8 @@ trait PushRegistrationRepository {
   def saveEndpoint(token: String, endpoint: String): Future[Boolean]
 
   def removeToken(token: String): Future[Boolean]
+
+  def countIncompleteRegistrations: Future[Map[String,Int]]
 }
 
 trait PushRegistrationMongoRepositoryTests extends PushRegistrationRepository {
