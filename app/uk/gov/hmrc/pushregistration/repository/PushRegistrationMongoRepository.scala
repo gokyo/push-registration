@@ -16,19 +16,16 @@
 
 package uk.gov.hmrc.pushregistration.repository
 
-import com.sun.java.swing.plaf.windows.resources.windows
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.modules.reactivemongo.MongoDbConnection
-import reactivemongo.api.BSONSerializationPack.Document
 import reactivemongo.api.commands.UpdateWriteResult
 import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.api.{DB, ReadPreference}
 import reactivemongo.bson._
-import reactivemongo.core.commands.Count
 import reactivemongo.core.errors.ReactiveMongoException
-import reactivemongo.json.collection.JSONBatchCommands.JSONCountCommand
+import reactivemongo.json.collection.JSONBatchCommands.AggregationFramework
 import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
 import uk.gov.hmrc.mongo.{AtomicUpdate, BSONBuilderHelpers, DatabaseUpdate, ReactiveRepository}
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, OS, PushRegistration}
@@ -37,6 +34,7 @@ import uk.gov.hmrc.time.DateTimeUtils
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 
+case class IncompleteCount(os: Int, count: Int)
 
 case class PushRegistrationPersist(id: BSONObjectID, token: String, authId: String, device: Option[Device], endpoint: Option[String])
 
@@ -182,21 +180,27 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     atomicUpsert(findByTokenAndAuthId(registration.token, authId), modifierForInsert(registration, authId))
   }
 
-  override def countIncompleteRegistrations: Future[Map[String,Int]] = {
+  override def countIncompleteRegistrations: Future[Map[String, Int]] = {
 
-    val incompleteiOS: Option[collection.pack.Document] = Some(Json.obj("$and" -> Json.arr(Json.obj("endpoint" -> Json.obj("$exists" -> false)), Json.obj("device.os" -> 1))))
-    val incompleteAndroid: Option[collection.pack.Document] = Some(Json.obj("$and" -> Json.arr(Json.obj("endpoint" -> Json.obj("$exists" -> false)), Json.obj("device.os" -> 2))))
-    val incompleteWindows: Option[collection.pack.Document] = Some(Json.obj("$and" -> Json.arr(Json.obj("endpoint" -> Json.obj("$exists" -> false)), Json.obj("device.os" -> 3))))
-    val incompleteUnknown: Option[collection.pack.Document] = Some(Json.obj("$and" -> Json.arr(Json.obj("endpoint" -> Json.obj("$exists" -> false)), Json.obj("device.os" -> Json.obj("$exists" -> false)))))
+    implicit val incompleteCountFormat = Json.format[IncompleteCount]
 
-    val counts: Future[(Int, Int, Int, Int)] = for (
-      ios <- collection.count(incompleteiOS);
-      android <- collection.count(incompleteAndroid);
-      windows <- collection.count(incompleteWindows);
-      unknown <- collection.count(incompleteUnknown)
-    ) yield (ios, android, windows, unknown)
+    val result: Future[AggregationFramework.AggregationResult] = collection.aggregate(
+      AggregationFramework.Match(Json.obj("endpoint" -> Json.obj("$exists" -> false))),
+      List(
+        AggregationFramework.Group(JsString("$device.os"))("count" -> AggregationFramework.SumValue(1)),
+        AggregationFramework.Project(Json.obj("_id" -> 0, "os" -> Json.obj("$ifNull" -> Json.arr(JsString("$_id"), 0)), "count" -> "$count"))
+      )
+    )
 
-    counts.map(c => Map("ios" -> c._1, "android" -> c._2, "windows" -> c._3, "unknown" -> c._4))
+    result.map(_.result[IncompleteCount]).map { incompleteCount =>
+      incompleteCount.map(st =>
+        (st.os match {
+          case 1 => "ios"
+          case 2 => "android"
+          case 3 => "windows"
+          case _ => "unknown"
+        }, st.count)).toMap
+    }
   }
 
   private def processBatch(batch: Future[List[PushRegistrationPersist]]): Future[Seq[PushRegistrationPersist]] = {
@@ -237,12 +241,13 @@ trait PushRegistrationRepository {
 
   def removeToken(token: String): Future[Boolean]
 
-  def countIncompleteRegistrations: Future[Map[String,Int]]
+  def countIncompleteRegistrations: Future[Map[String, Int]]
 }
 
 trait PushRegistrationMongoRepositoryTests extends PushRegistrationRepository {
   def removeAllRecords(): Future[Unit]
-  def findByAuthIdAndToken(authId: String, token:String): Future[Option[PushRegistrationPersist]]
+
+  def findByAuthIdAndToken(authId: String, token: String): Future[Option[PushRegistrationPersist]]
 }
 
 object PushRegistrationRepositoryTest extends MongoDbConnection {
@@ -256,7 +261,8 @@ class PushRegistrationMongoRepositoryTest(implicit mongo: () => DB) extends Push
   override def removeAllRecords(): Future[Unit] = {
     removeAll().map(_ => ())
   }
-  override def findByAuthIdAndToken(authId: String, token:String): Future[Option[PushRegistrationPersist]] = {
+
+  override def findByAuthIdAndToken(authId: String, token: String): Future[Option[PushRegistrationPersist]] = {
     collection.
       find(BSONDocument("authId" -> authId) ++ BSONDocument("token" -> token))
       .one[PushRegistrationPersist](ReadPreference.primaryPreferred)
