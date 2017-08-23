@@ -39,6 +39,12 @@ object NativeOS {
     override def toString: String = windows
   }
 
+  def getName(os: NativeOS): String = os match {
+      case `iOS` => NativeOS.ios
+      case Android => NativeOS.android
+      case Windows => NativeOS.windows
+    }
+
   val reads: Reads[NativeOS] = new Reads[NativeOS] {
     override def reads(json: JsValue): JsResult[NativeOS] = json match {
       case JsString("ios") => JsSuccess(iOS)

@@ -18,13 +18,17 @@ package controllers
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import com.codahale.metrics.Meter
 import org.scalatest.concurrent.ScalaFutures
 import play.api.libs.json.Json
 import play.api.mvc.Result
 import play.api.test.FakeApplication
 import uk.gov.hmrc.play.test.{UnitSpec, WithFakeApplication}
-import uk.gov.hmrc.pushregistration.domain.PushRegistration
+import uk.gov.hmrc.pushregistration.domain.{NativeOS, PushRegistration}
+import uk.gov.hmrc.pushregistration.metrics.PushRegistrationMetricsPublisher
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication with ScalaFutures with StubApplicationConfiguration {
 
@@ -81,6 +85,22 @@ class PushRegistrationControllerSpec extends UnitSpec with WithFakeApplication w
         status(result) shouldBe 403
         testRepository.savedRegistration shouldBe None
         jsonBodyOf(result) shouldBe Json.parse("""{"code":"UNAUTHORIZED","message":"Access denied!"}""")
+      }
+
+      "meter new registrations" in new Success {
+        await(controller.register()(getRequest(testId)))
+
+        val allMeters: mutable.Map[String, Meter] = PushRegistrationMetricsPublisher.registry.getMeters().asScala
+        val name = if (testId == 1) "unknown" else NativeOS.getName(device.os)
+        val meter = allMeters.getOrElse(s"push-registration.registrations.new.$name", fail(s"missing meter: $name"))
+
+        val was = meter.getCount
+
+        await(controller.register()(getRequest(testId)))
+
+        val now = meter.getCount
+
+        now shouldBe was + 1
       }
     }
   })

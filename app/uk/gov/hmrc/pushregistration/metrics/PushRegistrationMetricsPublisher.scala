@@ -29,6 +29,7 @@ trait PushRegistrationMetricsPublisher extends MicroserviceMetrics {
   val service = "push-registration"
   val registrations = "registrations"
   val gauge = "incomplete"
+  val meter = "new"
 
   lazy val registry: MetricRegistry = metrics.defaultRegistry
 
@@ -43,6 +44,8 @@ trait PushRegistrationMetricsPublisher extends MicroserviceMetrics {
       }
     }
   }
+
+  def incrementNewRegistration(os: String): Unit = registry.meter(s"$service.$registrations.$meter.$os").mark()
 }
 
 object PushRegistrationMetricsPublisher extends PushRegistrationMetricsPublisher {
