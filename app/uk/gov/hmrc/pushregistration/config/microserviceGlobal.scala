@@ -35,6 +35,7 @@ import uk.gov.hmrc.api.config.{ServiceLocatorConfig, ServiceLocatorRegistration}
 import uk.gov.hmrc.api.connector.ServiceLocatorConnector
 import uk.gov.hmrc.api.controllers._
 import uk.gov.hmrc.play.filters.MicroserviceFilterSupport
+import uk.gov.hmrc.pushregistration.metrics.PushRegistrationMetricsPublisher
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -80,6 +81,12 @@ object MicroserviceGlobal extends DefaultMicroserviceGlobal with RunMode with Se
   override val slConnector: ServiceLocatorConnector = ServiceLocatorConnector(WSHttp)
 
   override implicit val hc: HeaderCarrier = HeaderCarrier()
+
+  override def onStart(app: Application): Unit = {
+    super.onStart(app)
+
+    PushRegistrationMetricsPublisher.registerGauges()
+  }
 
   override def onError(request: RequestHeader, ex: Throwable): Future[Result] = {
     super.onError(request, ex) map (res => {

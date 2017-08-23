@@ -185,11 +185,11 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
     }
 
-    "return 503 service unavailable when the lock cannot be obtained" in new LockFailed {
+    "return 409 conflict when the lock cannot be obtained" in new LockFailed {
       val result: Result = await(controller.findIncompleteRegistrations()(emptyRequestWithAcceptHeader))
 
-      status(result) shouldBe 503
-      jsonBodyOf(result) shouldBe Json.parse("""{"code":"SERVICE_UNAVAILABLE","message":"Failed to obtain lock"}""")
+      status(result) shouldBe 409
+      jsonBodyOf(result) shouldBe Json.parse("""{"code":"CONFLICT","message":"Failed to obtain lock"}""")
     }
 
   }
@@ -213,11 +213,11 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
     }
 
-    "return 503 service unavailable when the lock cannot be obtained" in new LockFailed {
+    "return 409 service unavailable when the lock cannot be obtained" in new LockFailed {
       val result: Result = await(controller.findTimedOutRegistrations()(emptyRequestWithAcceptHeader))
 
-      status(result) shouldBe 503
-      jsonBodyOf(result) shouldBe Json.parse("""{"code":"SERVICE_UNAVAILABLE","message":"Failed to obtain lock"}""")
+      status(result) shouldBe 409
+      jsonBodyOf(result) shouldBe Json.parse("""{"code":"CONFLICT","message":"Failed to obtain lock"}""")
     }
 
   }

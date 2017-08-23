@@ -63,4 +63,12 @@ class JsonTestSpec extends UnitSpec with WithFakeApplication with ScalaFutures w
       a[Exception] should be thrownBy Json.parse( s"""{"token":"token","device":{"os":"unknown","osVersion":"0.1","appVersion":"1.1","model":"some-device"}}""").asOpt[PushRegistration]
     }
   }
+
+  "NativeOS" should {
+    Array((NativeOS.iOS, "ios"), (NativeOS.Android, "android"), (NativeOS.Windows, "windows")).foreach { case (os, name) =>
+      s"return the correct name given the id of $name" in {
+        NativeOS.getName(os) shouldBe name
+      }
+    }
+  }
 }

@@ -28,6 +28,7 @@ import uk.gov.hmrc.play.http.{HeaderCarrier, UnauthorizedException}
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.Authority
 import uk.gov.hmrc.pushregistration.domain._
+import uk.gov.hmrc.pushregistration.metrics.PushRegistrationMetricsPublisher
 import uk.gov.hmrc.pushregistration.repository.PushRegistrationRepository
 
 import scala.collection.immutable.Iterable
@@ -81,8 +82,12 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
 
       pushRegistrationRepository.save(registration, authority.get.authInternalId).map { result =>
         result.updateType match {
-          case Saved(_) => true
-          case Updated(_, _) => false
+          case Saved(_) =>
+            val os = registration.device.map(d => NativeOS.getName(d.os)).getOrElse("unknown")
+            PushRegistrationMetricsPublisher.incrementNewRegistration(os)
+            true
+          case Updated(_, _) =>
+            false
         }
       }
     }
