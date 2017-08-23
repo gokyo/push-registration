@@ -1,23 +1,6 @@
 import sbt._
-import uk.gov.hmrc.SbtAutoBuildPlugin
-import uk.gov.hmrc.sbtdistributables.SbtDistributablesPlugin
-import uk.gov.hmrc.versioning.SbtGitVersioning
-import play.sbt.PlayImport._
 
-object MicroServiceBuild extends Build with MicroService {
-  import play.sbt.routes.RoutesKeys._
-
-  val appName = "push-registration"
-
-  override lazy val plugins: Seq[Plugins] = Seq(
-    SbtAutoBuildPlugin, SbtGitVersioning, SbtDistributablesPlugin
-  )
-
-  override lazy val appDependencies: Seq[ModuleID] = AppDependencies()
-  override lazy val playSettings : Seq[Setting[_]] = Seq(routesImport ++= Seq("uk.gov.hmrc.pushregistration.binders.Binders._"))
-}
-
-private object AppDependencies {
+object AppDependencies {
   import play.sbt.PlayImport._
   import play.core.PlayVersion
 
