@@ -36,6 +36,7 @@ import uk.gov.hmrc.pushregistration.connectors.{AuthConnector, Authority}
 import uk.gov.hmrc.pushregistration.controllers.PushRegistrationController
 import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControl, AccountAccessControlCheckAccessOff, AccountAccessControlWithHeaderCheck}
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, PushRegistration}
+import uk.gov.hmrc.pushregistration.metrics.PushRegistrationMetricsPublisher
 import uk.gov.hmrc.pushregistration.repository.{PushRegistrationPersist, PushRegistrationRepository}
 import uk.gov.hmrc.pushregistration.services.{LivePushRegistrationService, PushRegistrationService, SandboxPushRegistrationService}
 
@@ -70,7 +71,7 @@ class TestRepository extends PushRegistrationRepository {
 
   override def findTimedOutRegistrations(timeoutMilliseconds: Long, maxRows: Int): Future[Seq[PushRegistrationPersist]] = ???
 
-  override def countIncompleteRegistrations = ???
+  override def countIncompleteRegistrations: Future[Map[String,Int]] = ???
 }
 
 class TestLockRepository(canLock: Boolean = true)(implicit mongo: () => DB) extends LockRepository()(mongo) {
@@ -243,4 +244,18 @@ trait SandboxSuccess extends Setup {
     override val accessControl: AccountAccessControlWithHeaderCheck = sandboxCompositeAction
     override implicit val ec: ExecutionContext = ExecutionContext.global
   }
+}
+
+case class TestIncompleteRepository(counts: Map[String, Int]) extends TestRepository {
+  override def countIncompleteRegistrations = Future(counts)
+}
+
+trait IncompleteCounts {
+  val counts = Map("ios"->4, "android"->3, "windows"->2, "unknown"->1)
+
+  val publisher = new PushRegistrationMetricsPublisher {
+    override val repository = TestIncompleteRepository(counts)
+  }
+
+  publisher.registerGauges()
 }
