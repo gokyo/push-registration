@@ -25,21 +25,20 @@ import scala.concurrent.duration._
 
 trait PushRegistrationMetricsPublisher extends MicroserviceMetrics {
   val repository: PushRegistrationRepository
+  val registry: MetricRegistry
 
   val service = "push-registration"
   val registrations = "registrations"
   val gauge = "incomplete"
   val meter = "new"
 
-  lazy val registry: MetricRegistry = metrics.defaultRegistry
-
   def registerGauges() {
     for (key <- Array("ios", "android", "windows", "unknown")) {
       if (!registry.getGauges.keySet().contains(s"$service.$registrations.$gauge.$key")) {
         registry.register(s"$service.$registrations.$gauge.$key", new Gauge[Long] {
           override def getValue: Long =
-            Await.result(repository.countIncompleteRegistrations, 10 seconds)
-              .getOrElse(key, throw new Exception(s"$key incomplete count missing"))
+          Await.result(repository.countIncompleteRegistrations, 10 seconds)
+            .getOrElse(key, throw new Exception(s"$key incomplete count missing"))
         })
       }
     }
@@ -50,4 +49,5 @@ trait PushRegistrationMetricsPublisher extends MicroserviceMetrics {
 
 object PushRegistrationMetricsPublisher extends PushRegistrationMetricsPublisher {
   override val repository: PushRegistrationRepository = PushRegistrationRepository()
+  override val registry: MetricRegistry = metrics.defaultRegistry
 }
