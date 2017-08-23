@@ -18,6 +18,7 @@ package controllers
 
 import java.util.UUID
 
+import com.codahale.metrics.MetricRegistry
 import org.joda.time.Duration
 import play.api.libs.json.{JsValue, Json}
 import play.api.test.FakeRequest
@@ -255,6 +256,7 @@ trait IncompleteCounts {
 
   val publisher = new PushRegistrationMetricsPublisher {
     override val repository = TestIncompleteRepository(counts)
+    override val registry = new MetricRegistry
   }
 
   publisher.registerGauges()
