@@ -49,7 +49,7 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
       implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
       errorWrapper(service.removeStaleRegistrations.map {
         count =>
-          if (count == 0) NotFound(NoStaleRegistrations) else Ok(Json.parse(s"""{"count":$count}"""))
+          if (count == 0) NotFound(NoStaleRegistrations) else Ok(Json.parse(s"""{"removed":$count}"""))
       })
   }
 

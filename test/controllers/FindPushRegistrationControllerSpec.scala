@@ -229,7 +229,7 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
       val result: Result = await(controller.removeStaleRegistrations()(emptyRequestWithAcceptHeader))
 
       status(result) shouldBe 200
-      jsonBodyOf(result) shouldBe Json.parse("""{"count":5}""")
+      jsonBodyOf(result) shouldBe Json.parse("""{"removed":5}""")
     }
 
     "return 404 not found when there are no stale registrations" in new NotFoundResult {
