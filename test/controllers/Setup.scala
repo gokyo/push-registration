@@ -73,6 +73,8 @@ class TestRepository extends PushRegistrationRepository {
   override def findTimedOutRegistrations(timeoutMilliseconds: Long, maxRows: Int): Future[Seq[PushRegistrationPersist]] = ???
 
   override def countIncompleteRegistrations: Future[Map[String,Int]] = ???
+
+  override def removeStaleRegistrations(timeoutMilliseconds: Long) = ???
 }
 
 class TestLockRepository(canLock: Boolean = true)(implicit mongo: () => DB) extends LockRepository()(mongo) {

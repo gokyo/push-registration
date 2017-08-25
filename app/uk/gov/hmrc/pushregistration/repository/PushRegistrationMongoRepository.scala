@@ -23,7 +23,7 @@ import play.modules.reactivemongo.MongoDbConnection
 import reactivemongo.api.commands.UpdateWriteResult
 import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.api.{DB, ReadPreference}
-import reactivemongo.bson._
+import reactivemongo.bson.{BSONDocument, _}
 import reactivemongo.core.errors.ReactiveMongoException
 import reactivemongo.json.collection.JSONBatchCommands.AggregationFramework
 import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
@@ -174,6 +174,16 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     ).map(!_.inError)
   }
 
+  override def removeStaleRegistrations(timeoutMilliseconds: Long): Future[Int] = {
+    collection.remove(BSONDocument("$or" -> BSONArray(
+      BSONDocument("device.os" -> BSONDocument("$exists" -> false)),
+      BSONDocument("$and" -> BSONArray(
+        BSONDocument("endpoint" -> BSONDocument("$exists" -> false)),
+        BSONDocument("created" -> BSONDocument("$lt" -> BSONDateTime(DateTimeUtils.now.getMillis - timeoutMilliseconds)))
+      ))
+    ))).map(_.n)
+  }
+
   override def save(registration: PushRegistration, authId: String): Future[DatabaseUpdate[PushRegistrationPersist]] = {
     if (registration.endpoint.isDefined) {
       throw ReactiveMongoException("You must not create a push registration with endpoint, use saveEndpoint() instead!")
@@ -242,6 +252,8 @@ trait PushRegistrationRepository {
   def saveEndpoint(token: String, endpoint: String): Future[Boolean]
 
   def removeToken(token: String): Future[Boolean]
+
+  def removeStaleRegistrations(timeoutMilliseconds: Long): Future[Int]
 
   def countIncompleteRegistrations: Future[Map[String, Int]]
 }
