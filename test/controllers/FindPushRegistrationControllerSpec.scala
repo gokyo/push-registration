@@ -48,12 +48,12 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
   val endpoint = "/some/endpoint"
   val registrationPersist = PushRegistrationPersist(BSONObjectID.generate, "token", "authId", Some(device), Some(endpoint))
   val registrationIncompletePersist = PushRegistrationPersist(BSONObjectID.generate, "token", "authId", Some(device), None)
-  val found = new TestFindRepository(Seq(registrationPersist))
-  val foundIncomplete = new TestFindRepository(Seq(registrationIncompletePersist))
+  val found = new TestFindRepository(Seq(registrationPersist), 5)
+  val foundIncomplete = new TestFindRepository(Seq(registrationIncompletePersist), 0)
   val foundRegistration = PushRegistration("token", Some(device), Some(endpoint))
   val foundIncompleteRegistration = PushRegistration("token", Some(device), None)
 
-  class TestFindRepository(response:Seq[PushRegistrationPersist]) extends TestRepository {
+  class TestFindRepository(response:Seq[PushRegistrationPersist], stale: Int) extends TestRepository {
     override def save(registration: PushRegistration, authId:String): Future[DatabaseUpdate[PushRegistrationPersist]] = Future.failed(new IllegalArgumentException("Not defined"))
 
     override def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
@@ -61,6 +61,8 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
     override def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
 
     override def findTimedOutRegistrations(timeout: Long, maxRows: Int): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
+
+    override def removeStaleRegistrations(timeoutMilliseconds: Long) = Future.successful(stale)
   }
 
   trait Success extends Setup {
@@ -92,7 +94,7 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
   trait NotFoundResult extends Setup {
     val testLockRepository = new TestLockRepository
-    val testFinderRepository = new TestFindRepository(Seq.empty)
+    val testFinderRepository = new TestFindRepository(Seq.empty, 0)
     override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testFinderRepository, testLockRepository, MicroserviceAuditConnector)
 
     val controller = new FindPushRegistrationController {
@@ -220,5 +222,21 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
       jsonBodyOf(result) shouldBe Json.parse("""{"code":"CONFLICT","message":"Failed to obtain lock"}""")
     }
 
+  }
+
+  "removeStaleRegistrations PushNotificationController" should {
+    "remove stale registrations and return 200 success and Json" in new Success {
+      val result: Result = await(controller.removeStaleRegistrations()(emptyRequestWithAcceptHeader))
+
+      status(result) shouldBe 200
+      jsonBodyOf(result) shouldBe Json.parse("""{"count":5}""")
+    }
+
+    "return 404 not found when there are no stale registrations" in new NotFoundResult {
+      val result: Result = await(controller.removeStaleRegistrations()(emptyRequestWithAcceptHeader))
+
+      status(result) shouldBe 404
+      jsonBodyOf(result) shouldBe Json.parse("""{"code":"NOT_FOUND","message":"No stale registrations"}""")
+    }
   }
 }
