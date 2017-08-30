@@ -102,7 +102,7 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
 
   override def findIncompleteRegistrations(): Future[Option[Seq[PushRegistration]]] = {
     findIncompleteLockKeeper.tryLock {
-      pushRegistrationRepository.findIncompleteRegistrations(batchSize).map { item => item.map(row => PushRegistration(row.token, row.device, None)) }.
+      pushRegistrationRepository.findIncompleteRegistrations(Seq.empty, batchSize).map { item => item.map(row => PushRegistration(row.token, row.device, None)) }.
         andThen { case batch =>
           Logger.info(s"asked for $batchSize incomplete registrations; got ${batch.getOrElse(Seq.empty).size}")
         }
