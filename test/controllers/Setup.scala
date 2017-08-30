@@ -36,6 +36,7 @@ import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.{AuthConnector, Authority}
 import uk.gov.hmrc.pushregistration.controllers.PushRegistrationController
 import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControl, AccountAccessControlCheckAccessOff, AccountAccessControlWithHeaderCheck}
+import uk.gov.hmrc.pushregistration.domain.NativeOS.{Android, Windows, iOS}
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, PushRegistration}
 import uk.gov.hmrc.pushregistration.metrics.PushRegistrationMetricsPublisher
 import uk.gov.hmrc.pushregistration.repository.{PushRegistrationPersist, PushRegistrationRepository}
@@ -98,6 +99,7 @@ class TestPushRegistrationService(testAuthConnector: TestAuthConnector, testRepo
   override val lockRepository = testLockRepository
   override val batchSize = 10
   override val timeoutMillis = 60000L
+  override val configuredPlatforms: Seq[NativeOS] = Seq(iOS, Android, Windows)
 }
 
 class TestAccessCheck(testAuthConnector: TestAuthConnector) extends AccountAccessControl {
@@ -117,7 +119,7 @@ trait Setup extends MongoDbConnection {
   val acceptHeader = "Accept" -> "application/vnd.hmrc.1.0+json"
   val emptyRequest = FakeRequest()
 
-  lazy val device = Device(NativeOS.Android, "1.2", "1.3", "samsung")
+  lazy val device = Device(Android, "1.2", "1.3", "samsung")
 
   lazy val registration = PushRegistration("token-a", None, None)
   lazy val registrationWithDevice = PushRegistration("token-b", Some(device), None)
