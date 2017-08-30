@@ -125,12 +125,19 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
       collect[Seq]()
   }
 
-  override def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]] = {
+  override def findIncompleteRegistrations(platforms: Seq[NativeOS], maxRows: Int): Future[Seq[PushRegistrationPersist]] = {
+
+    if (platforms.isEmpty) {
+      throw new IllegalArgumentException("Must have at least one platform!")
+    }
+
+    val supported: BSONArray = platforms.foldLeft(BSONArray())((a, p) => a.add(OS.getId(p)))
+
     def incompleteRegistrations = {
       collection.find(BSONDocument("$and" -> BSONArray(
         BSONDocument("endpoint" -> BSONDocument("$exists" -> false)),
         BSONDocument("processing" -> BSONDocument("$exists" -> false)),
-        BSONDocument("device.os" -> BSONDocument("$exists" -> true))
+        BSONDocument("device.os" -> BSONDocument("$in" -> supported))
       ))).
         sort(Json.obj("created" -> JsNumber(1))).cursor[PushRegistrationPersist](ReadPreference.primaryPreferred).
         collect[List](maxRows)
@@ -245,7 +252,7 @@ trait PushRegistrationRepository {
 
   def findByAuthId(authId: String): Future[Seq[PushRegistrationPersist]]
 
-  def findIncompleteRegistrations(maxRows: Int): Future[Seq[PushRegistrationPersist]]
+  def findIncompleteRegistrations(platforms: Seq[NativeOS], maxRows: Int): Future[Seq[PushRegistrationPersist]]
 
   def findTimedOutRegistrations(timeoutMilliseconds: Long, maxRows: Int): Future[Seq[PushRegistrationPersist]]
 

@@ -18,6 +18,7 @@ package uk.gov.hmrc.pushregistration.services
 
 import org.joda.time.Duration
 import play.api.Logger
+import play.api.libs.json.JsString
 import play.modules.reactivemongo.MongoDbConnection
 import uk.gov.hmrc.api.sandbox._
 import uk.gov.hmrc.api.service._
@@ -58,6 +59,8 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
   val timeoutMillis: Long
 
   val staleTimeoutMillis: Long
+
+  val configuredPlatforms: Seq[NativeOS]
 
   def pushRegistrationRepository: PushRegistrationRepository
 
@@ -106,7 +109,7 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
 
   override def findIncompleteRegistrations(): Future[Option[Seq[PushRegistration]]] = {
     findIncompleteLockKeeper.tryLock {
-      pushRegistrationRepository.findIncompleteRegistrations(batchSize).map { item => item.map(row => PushRegistration(row.token, row.device, None)) }.
+      pushRegistrationRepository.findIncompleteRegistrations(configuredPlatforms, batchSize).map { item => item.map(row => PushRegistration(row.token, row.device, None)) }.
         andThen { case batch =>
           Logger.info(s"asked for $batchSize incomplete registrations; got ${batch.getOrElse(Seq.empty).size}")
         }
@@ -176,6 +179,8 @@ object LivePushRegistrationService extends LivePushRegistrationService with Serv
   override val timeoutMillis: Long = getInt("timeoutSeconds") * 1000L
 
   override val staleTimeoutMillis: Long = getInt("staleSeconds") * 1000L
+
+  override val configuredPlatforms: Seq[NativeOS] = getString("configuredPlatforms").split(",").map{s => NativeOS.reads.reads(JsString(s)).get}
 
   override val auditConnector = MicroserviceAuditConnector
 
