@@ -362,6 +362,31 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       incomplete(1).authId shouldBe "auth-c"
     }
 
+    "remove registrations that do not include os details" in new Setup {
+      await(repository.save(registrationWithDeviceAndroid, "auth-a"))
+      await(repository.save(registrationUnknownDevice, "auth-b"))
+      await(repository.save(registrationUnknownDevice, "auth-c"))
+      await(repository.save(registrationWithDeviceiOS, "auth-d"))
+
+      val removed = await(repository.removeStaleRegistrations(60000L))
+
+      removed shouldBe 2
+    }
+
+    "remove registrations that are incomplete after a timeout period has expired" in new Setup {
+      await(repository.save(registrationWithDeviceiOS, "auth-a"))
+      await(repository.save(registrationWithDeviceAndroid, "auth-b"))
+      await(repository.saveEndpoint(registrationWithDeviceiOS.token, "/some/end/point"))
+
+      Thread.sleep(1000L)
+
+      await(repository.save(registrationWithDeviceWindows, "auth-c"))
+
+      val removed = await(repository.removeStaleRegistrations(900L))
+
+      removed shouldBe 1
+    }
+
     "remove tokens" in new Setup {
       await(repository.save(registrationWithDeviceAndroid, "auth-a"))
       await(repository.save(registrationWithDeviceiOS, "auth-b"))

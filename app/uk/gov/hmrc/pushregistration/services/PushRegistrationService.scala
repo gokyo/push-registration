@@ -48,6 +48,8 @@ trait PushRegistrationService {
   def findTimedOutRegistrations(): Future[Option[Seq[PushRegistration]]]
 
   def registerEndpoints(endpoints: Map[String, Option[String]]): Future[Boolean]
+
+  def removeStaleRegistrations: Future[Int]
 }
 
 trait LivePushRegistrationService extends PushRegistrationService with Auditor {
@@ -55,6 +57,8 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
   val batchSize: Int
 
   val timeoutMillis: Long
+
+  val staleTimeoutMillis: Long
 
   val configuredPlatforms: Seq[NativeOS]
 
@@ -137,6 +141,13 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
 
     for {as <- allSaved; ar <- allRemoved} yield as & ar
   }
+
+  override def removeStaleRegistrations: Future[Int] = {
+    pushRegistrationRepository.removeStaleRegistrations(staleTimeoutMillis).andThen{ case result =>
+      val count = result.getOrElse(0)
+      Logger.info(s"removed $count stale registrations which did not have device info or which were incomplete after ${staleTimeoutMillis / 1000} seconds")
+    }
+  }
 }
 
 object SandboxPushRegistrationService extends PushRegistrationService with FileResource {
@@ -157,14 +168,19 @@ object SandboxPushRegistrationService extends PushRegistrationService with FileR
 
   override def registerEndpoints(endpoints: Map[String, Option[String]]): Future[Boolean] =
     Future.successful(false)
+
+  override def removeStaleRegistrations =
+    Future.successful(0)
 }
 
 object LivePushRegistrationService extends LivePushRegistrationService with ServicesConfig with MongoDbConnection {
   override val batchSize: Int = getInt("unregisteredBatchSize")
 
-  override val configuredPlatforms: Seq[NativeOS] = getString("configuredPlatforms").split(",").map{s => NativeOS.reads.reads(JsString(s)).get}
+  override val timeoutMillis: Long = getInt("timeoutSeconds") * 1000L
 
-  override val timeoutMillis: Long = getInt("timeoutSeconds") * 1000
+  override val staleTimeoutMillis: Long = getInt("staleSeconds") * 1000L
+
+  override val configuredPlatforms: Seq[NativeOS] = getString("configuredPlatforms").split(",").map{s => NativeOS.reads.reads(JsString(s)).get}
 
   override val auditConnector = MicroserviceAuditConnector
 

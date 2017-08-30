@@ -29,6 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait FindPushRegistrationController extends BaseController with HeaderValidator with ErrorHandling {
   val NoUnregisteredEndpoints: JsValue = Json.parse("""{"code":"NOT_FOUND","message":"No unregistered endpoints"}""")
+  val NoStaleRegistrations: JsValue = Json.parse("""{"code":"NOT_FOUND","message":"No stale registrations"}""")
   val LockFailed: JsValue = Json.parse("""{"code":"CONFLICT","message":"Failed to obtain lock"}""")
 
   val service: PushRegistrationService
@@ -40,6 +41,15 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
       errorWrapper(service.find(id).map {
         response =>
           if (response.isEmpty) NotFound else Ok(Json.toJson(response))
+      })
+  }
+
+  def removeStaleRegistrations() = Action.async {
+    implicit request =>
+      implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
+      errorWrapper(service.removeStaleRegistrations.map {
+        count =>
+          if (count == 0) NotFound(NoStaleRegistrations) else Ok(Json.parse(s"""{"removed":$count}"""))
       })
   }
 

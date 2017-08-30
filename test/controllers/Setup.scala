@@ -74,6 +74,8 @@ class TestRepository extends PushRegistrationRepository {
   override def findTimedOutRegistrations(timeoutMilliseconds: Long, maxRows: Int): Future[Seq[PushRegistrationPersist]] = ???
 
   override def countIncompleteRegistrations: Future[Map[String,Int]] = ???
+
+  override def removeStaleRegistrations(timeoutMilliseconds: Long): Future[Int] = ???
 }
 
 class TestLockRepository(canLock: Boolean = true)(implicit mongo: () => DB) extends LockRepository()(mongo) {
@@ -99,6 +101,7 @@ class TestPushRegistrationService(testAuthConnector: TestAuthConnector, testRepo
   override val lockRepository = testLockRepository
   override val batchSize = 10
   override val timeoutMillis = 60000L
+  override val staleTimeoutMillis = 100000L
   override val configuredPlatforms: Seq[NativeOS] = Seq(iOS, Android, Windows)
 }
 
