@@ -143,7 +143,7 @@ trait LivePushRegistrationService extends PushRegistrationService with Auditor {
   }
 
   override def removeStaleRegistrations: Future[Int] = {
-    pushRegistrationRepository.removeStaleRegistrations(staleTimeoutMillis).andThen{ case result =>
+    pushRegistrationRepository.removeStaleRegistrations(configuredPlatforms, staleTimeoutMillis).andThen{ case result =>
       val count = result.getOrElse(0)
       Logger.info(s"removed $count stale registrations which did not have device info or which were incomplete after ${staleTimeoutMillis / 1000} seconds")
     }

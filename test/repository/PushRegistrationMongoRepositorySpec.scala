@@ -43,6 +43,7 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
   trait Setup {
     val allPlatforms = Seq(Android, iOS, Windows)
+    val somePlatforms = Seq(Android, iOS)
     val maxRows = 10
     val authId = "some-auth-id"
     val testToken1 = "token-1"
@@ -318,8 +319,6 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       await(repository.save(registrationWithDeviceiOS, "auth-b"))
       await(repository.save(registrationWithDeviceWindows, "auth-c"))
 
-      val somePlatforms = Seq(Android, iOS)
-
       val result: Seq[PushRegistrationPersist] = await(repository.findIncompleteRegistrations(somePlatforms, maxRows))
 
       result.size shouldBe 2
@@ -362,15 +361,16 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       incomplete(1).authId shouldBe "auth-c"
     }
 
-    "remove registrations that do not include os details" in new Setup {
+    "remove registrations that do not match configured os details" in new Setup {
       await(repository.save(registrationWithDeviceAndroid, "auth-a"))
       await(repository.save(registrationUnknownDevice, "auth-b"))
       await(repository.save(registrationUnknownDevice, "auth-c"))
       await(repository.save(registrationWithDeviceiOS, "auth-d"))
+      await(repository.save(registrationWithDeviceWindows, "auth-e"))
 
-      val removed = await(repository.removeStaleRegistrations(60000L))
+      val removed = await(repository.removeStaleRegistrations(somePlatforms, 60000L))
 
-      removed shouldBe 2
+      removed shouldBe 3
     }
 
     "remove registrations that are incomplete after a timeout period has expired" in new Setup {
@@ -380,11 +380,17 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
 
       Thread.sleep(1000L)
 
-      await(repository.save(registrationWithDeviceWindows, "auth-c"))
+      await(repository.save(registrationWithDeviceiOS, "auth-c"))
 
-      val removed = await(repository.removeStaleRegistrations(900L))
+      val removed = await(repository.removeStaleRegistrations(somePlatforms, 900L))
 
       removed shouldBe 1
+    }
+
+    "throw an exception if no platforms are retained" in new Setup {
+      val result = intercept[IllegalArgumentException](repository.removeStaleRegistrations(Seq.empty, 10L))
+
+      result.getMessage shouldBe "Must keep at least one platform!"
     }
 
     "remove tokens" in new Setup {

@@ -181,9 +181,15 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
     ).map(!_.inError)
   }
 
-  override def removeStaleRegistrations(timeoutMilliseconds: Long): Future[Int] = {
+  override def removeStaleRegistrations(keep: Seq[NativeOS], timeoutMilliseconds: Long): Future[Int] = {
+    if (keep.isEmpty) {
+      throw new IllegalArgumentException("Must keep at least one platform!")
+    }
+
+    val supported: BSONArray = keep.foldLeft(BSONArray())((a, p) => a.add(OS.getId(p)))
+
     collection.remove(BSONDocument("$or" -> BSONArray(
-      BSONDocument("device.os" -> BSONDocument("$exists" -> false)),
+      BSONDocument("device.os" -> BSONDocument("$nin" -> supported)),
       BSONDocument("$and" -> BSONArray(
         BSONDocument("endpoint" -> BSONDocument("$exists" -> false)),
         BSONDocument("created" -> BSONDocument("$lt" -> BSONDateTime(DateTimeUtils.now.getMillis - timeoutMilliseconds)))
@@ -260,7 +266,7 @@ trait PushRegistrationRepository {
 
   def removeToken(token: String): Future[Boolean]
 
-  def removeStaleRegistrations(timeoutMilliseconds: Long): Future[Int]
+  def removeStaleRegistrations(keep: Seq[NativeOS], timeoutMilliseconds: Long): Future[Int]
 
   def countIncompleteRegistrations: Future[Map[String, Int]]
 }
