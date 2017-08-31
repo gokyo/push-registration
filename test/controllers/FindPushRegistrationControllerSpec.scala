@@ -62,7 +62,7 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
     override def findTimedOutRegistrations(timeout: Long, maxRows: Int): Future[Seq[PushRegistrationPersist]] = Future.successful(response)
 
-    override def removeStaleRegistrations(timeoutMilliseconds: Long) = Future.successful(stale)
+    override def removeStaleRegistrations(keep: Seq[NativeOS], timeoutMilliseconds: Long): Future[Int] = Future.successful(stale)
   }
 
   trait Success extends Setup {

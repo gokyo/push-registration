@@ -75,7 +75,7 @@ class TestRepository extends PushRegistrationRepository {
 
   override def countIncompleteRegistrations: Future[Map[String,Int]] = ???
 
-  override def removeStaleRegistrations(timeoutMilliseconds: Long): Future[Int] = ???
+  override def removeStaleRegistrations(keep: Seq[NativeOS], timeoutMilliseconds: Long): Future[Int] = ???
 }
 
 class TestLockRepository(canLock: Boolean = true)(implicit mongo: () => DB) extends LockRepository()(mongo) {
