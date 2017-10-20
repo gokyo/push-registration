@@ -19,7 +19,7 @@ package uk.gov.hmrc.pushregistration.controllers
 import play.api.libs.json._
 import play.api.mvc.Action
 import uk.gov.hmrc.api.controllers.HeaderValidator
-import uk.gov.hmrc.play.http.HeaderCarrier
+import uk.gov.hmrc.play.HeaderCarrierConverter
 import uk.gov.hmrc.play.microservice.controller.BaseController
 import uk.gov.hmrc.pushregistration.controllers.action.AccountAccessControlWithHeaderCheck
 import uk.gov.hmrc.pushregistration.domain.PushRegistration
@@ -37,7 +37,7 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
 
   def find(id: String, journeyId: Option[String] = None) = accessControl.validateAccept(acceptHeaderValidationRules).async {
     implicit request =>
-      implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
+      implicit val hc = HeaderCarrierConverter.fromHeadersAndSession(request.headers, None)
       errorWrapper(service.find(id).map {
         response =>
           if (response.isEmpty) NotFound else Ok(Json.toJson(response))
@@ -46,7 +46,7 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
 
   def removeStaleRegistrations() = Action.async {
     implicit request =>
-      implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
+      implicit val hc = HeaderCarrierConverter.fromHeadersAndSession(request.headers, None)
       errorWrapper(service.removeStaleRegistrations.map {
         count =>
           if (count == 0) NotFound(NoStaleRegistrations) else Ok(Json.parse(s"""{"removed":$count}"""))
@@ -59,7 +59,7 @@ trait FindPushRegistrationController extends BaseController with HeaderValidator
 
   private def findRegistrations(f: => Future[Option[Seq[PushRegistration]]]) = Action.async {
     implicit request =>
-      implicit val hc = HeaderCarrier.fromHeadersAndSession(request.headers, None)
+      implicit val hc = HeaderCarrierConverter.fromHeadersAndSession(request.headers, None)
       errorWrapper(f.map {
         _.map {
           registrations =>

@@ -27,11 +27,11 @@ import play.modules.reactivemongo.MongoDbConnection
 import reactivemongo.api.DB
 import reactivemongo.bson.BSONObjectID
 import uk.gov.hmrc.domain.Nino
+import uk.gov.hmrc.http.{CoreGet, ForbiddenException, HeaderCarrier, Upstream4xxResponse}
 import uk.gov.hmrc.lock.LockRepository
 import uk.gov.hmrc.mongo.{DatabaseUpdate, Saved, Updated}
 import uk.gov.hmrc.play.audit.http.connector.{AuditConnector, AuditResult}
 import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
-import uk.gov.hmrc.play.http.{ForbiddenException, HeaderCarrier, HttpGet, Upstream4xxResponse}
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.{AuthConnector, Authority}
 import uk.gov.hmrc.pushregistration.controllers.PushRegistrationController
@@ -50,7 +50,7 @@ class TestAuthConnector(nino: Option[Nino]) extends AuthConnector {
 
   override def serviceConfidenceLevel: ConfidenceLevel = throw new Exception("Not used")
 
-  override def http: HttpGet = throw new Exception("Not used")
+  override def http: CoreGet = throw new Exception("Not used")
 
   override def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = Future(Authority(nino.get, ConfidenceLevel.L200, "authId"))
 }

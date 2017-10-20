@@ -25,7 +25,7 @@ import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.api.{DB, ReadPreference}
 import reactivemongo.bson.{BSONDocument, _}
 import reactivemongo.core.errors.ReactiveMongoException
-import reactivemongo.json.collection.JSONBatchCommands.AggregationFramework
+import reactivemongo.play.json.ImplicitBSONHandlers._
 import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
 import uk.gov.hmrc.mongo.{AtomicUpdate, BSONBuilderHelpers, DatabaseUpdate, ReactiveRepository}
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, OS, PushRegistration}
@@ -33,6 +33,7 @@ import uk.gov.hmrc.time.DateTimeUtils
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 case class IncompleteCount(os: Int, count: Int)
 
@@ -178,7 +179,11 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
   override def removeToken(token: String): Future[Boolean] = {
     collection.remove(
       BSONDocument("token" -> token), firstMatchOnly = true
-    ).map(!_.inError)
+    ) map {
+      _ => true
+    } recover {
+      case NonFatal(_) => false
+    }
   }
 
   override def removeStaleRegistrations(keep: Seq[NativeOS], timeoutMilliseconds: Long): Future[Int] = {
@@ -209,7 +214,9 @@ class PushRegistrationMongoRepository(implicit mongo: () => DB)
 
     implicit val incompleteCountFormat = Json.format[IncompleteCount]
 
-    val result: Future[AggregationFramework.AggregationResult] = collection.aggregate(
+    import collection.BatchCommands.AggregationFramework
+
+    val result = collection.aggregate(
       AggregationFramework.Match(Json.obj("endpoint" -> Json.obj("$exists" -> false))),
       List(
         AggregationFramework.Group(JsString("$device.os"))("count" -> AggregationFramework.SumValue(1)),

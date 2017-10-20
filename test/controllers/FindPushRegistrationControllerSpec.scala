@@ -24,8 +24,8 @@ import play.api.mvc.Result
 import play.api.test.FakeApplication
 import play.api.test.Helpers._
 import reactivemongo.bson.BSONObjectID
+import uk.gov.hmrc.http.{HeaderCarrier, Upstream4xxResponse}
 import uk.gov.hmrc.mongo.DatabaseUpdate
-import uk.gov.hmrc.play.http.{HeaderCarrier, Upstream4xxResponse}
 import uk.gov.hmrc.play.test.{UnitSpec, WithFakeApplication}
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.Authority

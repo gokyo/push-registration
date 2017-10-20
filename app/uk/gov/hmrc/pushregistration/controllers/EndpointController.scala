@@ -19,9 +19,8 @@ package uk.gov.hmrc.pushregistration.controllers
 import play.api.Logger
 import play.api.libs.json._
 import play.api.mvc.{Action, BodyParsers}
-import uk.gov.hmrc.play.http.HeaderCarrier
+import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.play.microservice.controller.BaseController
-import uk.gov.hmrc.pushregistration.domain.NativeOS
 import uk.gov.hmrc.pushregistration.services.{LivePushRegistrationService, PushRegistrationService}
 
 import scala.concurrent.{ExecutionContext, Future}
