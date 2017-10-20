@@ -22,10 +22,10 @@ import play.api.libs.json.JsString
 import play.modules.reactivemongo.MongoDbConnection
 import uk.gov.hmrc.api.sandbox._
 import uk.gov.hmrc.api.service._
+import uk.gov.hmrc.http.{HeaderCarrier, UnauthorizedException}
 import uk.gov.hmrc.lock.{LockKeeper, LockMongoRepository, LockRepository}
 import uk.gov.hmrc.mongo.{Saved, Updated}
 import uk.gov.hmrc.play.config.ServicesConfig
-import uk.gov.hmrc.play.http.{HeaderCarrier, UnauthorizedException}
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
 import uk.gov.hmrc.pushregistration.connectors.Authority
 import uk.gov.hmrc.pushregistration.domain._

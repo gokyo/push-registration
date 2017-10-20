@@ -16,12 +16,13 @@
 
 package connectors
 
+import com.typesafe.config.Config
 import org.scalatest.concurrent.ScalaFutures
 import play.api.libs.json.{JsValue, Json}
 import uk.gov.hmrc.domain.{Nino, SaUtr}
+import uk.gov.hmrc.http._
+import uk.gov.hmrc.http.hooks.HttpHook
 import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
-import uk.gov.hmrc.play.http.hooks.HttpHook
-import uk.gov.hmrc.play.http._
 import uk.gov.hmrc.play.test.UnitSpec
 import uk.gov.hmrc.pushregistration.connectors.{AuthConnector, Authority, NinoNotFoundOnAccount, NoInternalId}
 
@@ -34,8 +35,8 @@ class AuthConnectorSpec extends UnitSpec with ScalaFutures {
 
   def authConnector(authResponse: HttpResponse, oidResponse: HttpResponse, cl: ConfidenceLevel = ConfidenceLevel.L200) = new AuthConnector {
 
-    override def http: HttpGet = new HttpGet {
-      override protected def doGet(url: String)(implicit hc: HeaderCarrier): Future[HttpResponse] = {
+    override def http: CoreGet = new HttpGet {
+      override def doGet(url: String)(implicit hc: HeaderCarrier): Future[HttpResponse] = {
         if (url.contains("oid")) {
           Future.successful(oidResponse)
         } else {
@@ -43,6 +44,7 @@ class AuthConnectorSpec extends UnitSpec with ScalaFutures {
         }
       }
       override val hooks: Seq[HttpHook] = Seq.empty
+      override def configuration: Option[Config] = None
     }
 
     override val serviceUrl: String = "http://localhost"

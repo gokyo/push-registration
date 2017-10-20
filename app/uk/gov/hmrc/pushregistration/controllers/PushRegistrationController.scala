@@ -16,15 +16,16 @@
 
 package uk.gov.hmrc.pushregistration.controllers
 
-import play.api.mvc.BodyParsers
-import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControlWithHeaderCheck, AccountAccessControlCheckAccessOff}
+import play.api.Logger
 import play.api.libs.json._
+import play.api.mvc.BodyParsers
+import uk.gov.hmrc.api.controllers._
+import uk.gov.hmrc.http.UnauthorizedException
+import uk.gov.hmrc.play.HeaderCarrierConverter
+import uk.gov.hmrc.play.microservice.controller.BaseController
+import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControlCheckAccessOff, AccountAccessControlWithHeaderCheck}
 import uk.gov.hmrc.pushregistration.domain.PushRegistration
 import uk.gov.hmrc.pushregistration.services._
-import play.api.Logger
-import uk.gov.hmrc.play.http.{UnauthorizedException, HeaderCarrier}
-import uk.gov.hmrc.play.microservice.controller.BaseController
-import uk.gov.hmrc.api.controllers._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -35,7 +36,7 @@ trait PushRegistrationController extends BaseController with HeaderValidator wit
 
   final def register(journeyId: Option[String] = None) = accessControl.validateAccept(acceptHeaderValidationRules).async(BodyParsers.parse.json) {
     implicit authenticated =>
-      implicit val hc = HeaderCarrier.fromHeadersAndSession(authenticated.request.headers, None)
+      implicit val hc = HeaderCarrierConverter.fromHeadersAndSession(authenticated.request.headers, None)
 
       authenticated.request.body.validate[PushRegistration].fold(
         errors => {

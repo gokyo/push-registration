@@ -19,19 +19,19 @@ package uk.gov.hmrc.pushregistration.connectors
 import play.api.Play
 import play.api.libs.json.JsValue
 import uk.gov.hmrc.domain.Nino
+import uk.gov.hmrc.http.{CoreGet, ForbiddenException, HeaderCarrier}
 import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
 import uk.gov.hmrc.play.config.ServicesConfig
-import uk.gov.hmrc.play.http.{ForbiddenException, HeaderCarrier, HttpGet}
 import uk.gov.hmrc.pushregistration.config.WSHttp
 
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class NinoNotFoundOnAccount(message: String) extends uk.gov.hmrc.play.http.HttpException(message, 401)
+class NinoNotFoundOnAccount(message: String) extends uk.gov.hmrc.http.HttpException(message, 401)
 
-class NoInternalId(message: String) extends uk.gov.hmrc.play.http.HttpException(message, 401)
+class NoInternalId(message: String) extends uk.gov.hmrc.http.HttpException(message, 401)
 
-class AccountWithLowCL(message: String) extends uk.gov.hmrc.play.http.HttpException(message, 401)
+class AccountWithLowCL(message: String) extends uk.gov.hmrc.http.HttpException(message, 401)
 
 case class Authority(nino: Nino, cl: ConfidenceLevel, authInternalId: String)
 
@@ -39,7 +39,7 @@ trait AuthConnector {
 
   val serviceUrl: String
 
-  def http: HttpGet
+  def http: CoreGet
 
   def serviceConfidenceLevel: ConfidenceLevel
 
