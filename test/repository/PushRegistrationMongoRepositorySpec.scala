@@ -424,5 +424,20 @@ class PushRegistrationMongoRepositorySpec extends UnitSpec with
       counts.get(NativeOS.windows) shouldBe Some(1)
       counts.get("unknown") shouldBe Some(5)
     }
+
+    "not include zero counts in the count of tokens that do not have an endpoint" in new Setup {
+      for (i <- 1 to 12) {
+        val device: Option[Device] = if (i % 3 == 0) Some(deviceiOS) else if (i % 7 == 0) Some(deviceWindows) else None
+        val token: String = s"token-$i"
+        val auth: String = s"auth-$i"
+        val registration = PushRegistration(token, device, None)
+        await(repository.save(registration, auth))
+      }
+
+      val counts: Map[String, Int] = await(repository.countIncompleteRegistrations)
+
+      counts.keySet.size shouldBe 3
+      counts.get(NativeOS.android) shouldBe None
+    }
   }
 }

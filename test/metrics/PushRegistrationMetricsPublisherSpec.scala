@@ -36,14 +36,26 @@ class PushRegistrationMetricsPublisherSpec extends UnitSpec with
 
   "PushRegistrationMetricsPublisher" should {
 
-    for (os <- Array(("ios",4),("android",3), ("windows",2), ("unknown",1))) {
-      s"return the number of incomplete ${os._1} registrations" in new IncompleteCounts {
+    for ((os, incompleteRegistrations) <- Array(("ios",4),("android",3), ("windows",2), ("unknown",1))) {
+      s"return the number of incomplete $os registrations" in new IncompleteCounts {
         val all: mutable.Map[String, Gauge[_]] = publisher.registry.getGauges.asScala
 
-        val gauge: Gauge[_] = all.getOrElse(s"push-registration.registrations.incomplete.${os._1}", fail(s"expected a value for ${os._1}"))
+        val gauge: Gauge[_] = all.getOrElse(s"push-registration.registrations.incomplete.$os", fail(s"expected a value for $os"))
 
-        gauge.getValue shouldBe os._2
+        gauge.getValue shouldBe incompleteRegistrations
       }
+    }
+
+    s"report zero where there are no incomplete registrations" in new IncompleteCounts {
+      override def counts = Map("ios" -> 4, "windows" -> 2, "unknown" -> 1)
+
+      val os = "android"
+
+      val all: mutable.Map[String, Gauge[_]] = publisher.registry.getGauges.asScala
+
+      val gauge: Gauge[_] = all.getOrElse(s"push-registration.registrations.incomplete.$os", fail(s"expected a value for $os"))
+
+      gauge.getValue shouldBe 0
     }
   }
 }

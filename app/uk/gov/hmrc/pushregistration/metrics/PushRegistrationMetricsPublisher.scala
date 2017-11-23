@@ -22,6 +22,7 @@ import uk.gov.hmrc.pushregistration.repository.PushRegistrationRepository
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 trait PushRegistrationMetricsPublisher extends MicroserviceMetrics {
   val repository: PushRegistrationRepository
@@ -35,10 +36,10 @@ trait PushRegistrationMetricsPublisher extends MicroserviceMetrics {
   def registerGauges() {
     for (key <- Array("ios", "android", "windows", "unknown")) {
       if (!registry.getGauges.keySet().contains(s"$service.$registrations.$gauge.$key")) {
-        registry.register(s"$service.$registrations.$gauge.$key", new Gauge[Long] {
-          override def getValue: Long =
+        registry.register(s"$service.$registrations.$gauge.$key", new Gauge[Int] {
+          override def getValue: Int =
           Await.result(repository.countIncompleteRegistrations, 10 seconds)
-            .getOrElse(key, throw new Exception(s"$key incomplete count missing"))
+            .getOrElse(key, 0)
         })
       }
     }
