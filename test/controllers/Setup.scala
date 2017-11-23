@@ -257,7 +257,7 @@ case class TestIncompleteRepository(counts: Map[String, Int]) extends TestReposi
 }
 
 trait IncompleteCounts {
-  val counts = Map("ios"->4, "android"->3, "windows"->2, "unknown"->1)
+  def counts = Map("ios"->4, "android"->3, "windows"->2, "unknown"->1)
 
   val publisher = new PushRegistrationMetricsPublisher {
     override val repository = TestIncompleteRepository(counts)
