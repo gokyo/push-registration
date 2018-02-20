@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 HM Revenue & Customs
+ * Copyright 2018 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,8 @@ import uk.gov.hmrc.http.{HeaderCarrier, Upstream4xxResponse}
 import uk.gov.hmrc.mongo.DatabaseUpdate
 import uk.gov.hmrc.play.test.{UnitSpec, WithFakeApplication}
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
-import uk.gov.hmrc.pushregistration.connectors.Authority
 import uk.gov.hmrc.pushregistration.controllers.FindPushRegistrationController
-import uk.gov.hmrc.pushregistration.controllers.action.AccountAccessControlWithHeaderCheck
+import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControlWithHeaderCheck, Authority}
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, PushRegistration}
 import uk.gov.hmrc.pushregistration.repository.PushRegistrationPersist
 import uk.gov.hmrc.pushregistration.services.PushRegistrationService
@@ -68,7 +67,7 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
   trait Success extends Setup {
     val testLockRepository = new TestLockRepository
     val testFinderRepository = found
-    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testFinderRepository, testLockRepository, MicroserviceAuditConnector)
+    override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testFinderRepository, testLockRepository, MicroserviceAuditConnector)
 
     val controller = new FindPushRegistrationController {
       override val service: PushRegistrationService = testPushRegistrationService
@@ -82,7 +81,7 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
   trait Incomplete extends Setup {
     val testLockRepository = new TestLockRepository
     val testFindRepository = foundIncomplete
-    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testFindRepository, testLockRepository, MicroserviceAuditConnector)
+    override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testFindRepository, testLockRepository, MicroserviceAuditConnector)
 
     val controller = new FindPushRegistrationController {
       override val service: PushRegistrationService = testPushRegistrationService
@@ -95,7 +94,7 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
   trait NotFoundResult extends Setup {
     val testLockRepository = new TestLockRepository
     val testFinderRepository = new TestFindRepository(Seq.empty, 0)
-    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testFinderRepository, testLockRepository, MicroserviceAuditConnector)
+    override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testFinderRepository, testLockRepository, MicroserviceAuditConnector)
 
     val controller = new FindPushRegistrationController {
       override val service: PushRegistrationService = testPushRegistrationService
@@ -108,7 +107,7 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
   trait LockFailed extends Setup {
     val testLockRepository = new TestLockRepository(false)
     val testFinderRepository = found
-    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testFinderRepository, testLockRepository, MicroserviceAuditConnector)
+    override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testFinderRepository, testLockRepository, MicroserviceAuditConnector)
 
     val controller = new FindPushRegistrationController {
       override val service: PushRegistrationService = testPushRegistrationService
@@ -121,14 +120,14 @@ class FindPushRegistrationControllerSpec extends UnitSpec with WithFakeApplicati
 
   trait AuthWithoutNino extends Setup {
 
-    override val authConnector =  new TestAuthConnector(None) {
+    override val testAccess =  new TestAccountAccessControl(None) {
       override def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = Future.failed(new Upstream4xxResponse("Error", 401, 401))
     }
 
     val testLockRepository = new TestLockRepository
     val testFinderRepository = found
 
-    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testFinderRepository, testLockRepository, MicroserviceAuditConnector)
+    override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testFinderRepository, testLockRepository, MicroserviceAuditConnector)
 
     val controller = new FindPushRegistrationController {
       override val service: PushRegistrationService = testPushRegistrationService
