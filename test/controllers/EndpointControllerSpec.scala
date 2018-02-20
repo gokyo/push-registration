@@ -16,8 +16,9 @@
 
 package controllers
 
+import akka.util.Timeout
 import org.scalatest.concurrent.ScalaFutures
-import play.api.libs.json.{JsArray, JsObject, Json}
+import play.api.libs.json.{JsObject, Json}
 import play.api.mvc.Result
 import play.api.test.FakeApplication
 import play.api.test.Helpers.contentAsJson
@@ -32,10 +33,9 @@ import uk.gov.hmrc.pushregistration.services.PushRegistrationService
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class EndpointControllerSpec extends UnitSpec with WithFakeApplication with ScalaFutures with StubApplicationConfiguration {
-  implicit lazy val timeout = akka.util.Timeout(2 seconds)
+  implicit lazy val timeout = Timeout(2 seconds)
 
   override lazy val fakeApplication = FakeApplication(additionalConfiguration = config)
 
@@ -58,7 +58,7 @@ class EndpointControllerSpec extends UnitSpec with WithFakeApplication with Scal
     val testRegisterEndpointsRepository = new TestRegisterEndpointRepository(true, true, authId, registrations)
     val testLockRepository = new TestLockRepository
 
-    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRegisterEndpointsRepository, testLockRepository, MicroserviceAuditConnector)
+    override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testRegisterEndpointsRepository, testLockRepository, MicroserviceAuditConnector)
 
     val controller = new EndpointController {
       override val service: PushRegistrationService = testPushRegistrationService
@@ -72,7 +72,7 @@ class EndpointControllerSpec extends UnitSpec with WithFakeApplication with Scal
     val testRegisterEndpointsRepository = new TestRegisterEndpointRepository(true, false, authId, registrations)
     val testLockRepository = new TestLockRepository
 
-    override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRegisterEndpointsRepository, testLockRepository, MicroserviceAuditConnector)
+    override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testRegisterEndpointsRepository, testLockRepository, MicroserviceAuditConnector)
 
     val controller = new EndpointController {
       override val service: PushRegistrationService = testPushRegistrationService

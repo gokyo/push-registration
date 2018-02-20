@@ -27,7 +27,7 @@ import uk.gov.hmrc.lock.{LockKeeper, LockMongoRepository, LockRepository}
 import uk.gov.hmrc.mongo.{Saved, Updated}
 import uk.gov.hmrc.play.config.ServicesConfig
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
-import uk.gov.hmrc.pushregistration.connectors.Authority
+import uk.gov.hmrc.pushregistration.controllers.action.Authority
 import uk.gov.hmrc.pushregistration.domain._
 import uk.gov.hmrc.pushregistration.metrics.PushRegistrationMetricsPublisher
 import uk.gov.hmrc.pushregistration.repository.PushRegistrationRepository

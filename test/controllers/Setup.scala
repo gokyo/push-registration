@@ -16,26 +16,27 @@
 
 package controllers
 
-import java.util.UUID
+import java.util.UUID.randomUUID
 
 import com.codahale.metrics.MetricRegistry
 import org.joda.time.Duration
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.JsValue
+import play.api.libs.json.Json.{stringify, toJson}
 import play.api.test.FakeRequest
 import play.api.test.Helpers._
 import play.modules.reactivemongo.MongoDbConnection
 import reactivemongo.api.DB
 import reactivemongo.bson.BSONObjectID
+import uk.gov.hmrc.auth.core.ConfidenceLevel
+import uk.gov.hmrc.auth.core.ConfidenceLevel.L200
 import uk.gov.hmrc.domain.Nino
-import uk.gov.hmrc.http.{CoreGet, ForbiddenException, HeaderCarrier, Upstream4xxResponse}
+import uk.gov.hmrc.http.{ForbiddenException, HeaderCarrier, Upstream4xxResponse}
 import uk.gov.hmrc.lock.LockRepository
 import uk.gov.hmrc.mongo.{DatabaseUpdate, Saved, Updated}
 import uk.gov.hmrc.play.audit.http.connector.{AuditConnector, AuditResult}
-import uk.gov.hmrc.play.auth.microservice.connectors.ConfidenceLevel
 import uk.gov.hmrc.pushregistration.config.MicroserviceAuditConnector
-import uk.gov.hmrc.pushregistration.connectors.{AuthConnector, Authority}
 import uk.gov.hmrc.pushregistration.controllers.PushRegistrationController
-import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControl, AccountAccessControlCheckAccessOff, AccountAccessControlWithHeaderCheck}
+import uk.gov.hmrc.pushregistration.controllers.action.{AccountAccessControl, AccountAccessControlCheckAccessOff, AccountAccessControlWithHeaderCheck, Authority}
 import uk.gov.hmrc.pushregistration.domain.NativeOS.{Android, Windows, iOS}
 import uk.gov.hmrc.pushregistration.domain.{Device, NativeOS, PushRegistration}
 import uk.gov.hmrc.pushregistration.metrics.PushRegistrationMetricsPublisher
@@ -45,14 +46,9 @@ import uk.gov.hmrc.pushregistration.services.{LivePushRegistrationService, PushR
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 
-class TestAuthConnector(nino: Option[Nino]) extends AuthConnector {
-  override val serviceUrl: String = "someUrl"
-
+class TestAccountAccessControl(nino: Option[Nino]) extends AccountAccessControl {
   override def serviceConfidenceLevel: ConfidenceLevel = throw new Exception("Not used")
-
-  override def http: CoreGet = throw new Exception("Not used")
-
-  override def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = Future(Authority(nino.get, ConfidenceLevel.L200, "authId"))
+  override def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = Future(Authority(nino.get, L200, "authId"))
 }
 
 class TestRepository extends PushRegistrationRepository {
@@ -88,7 +84,9 @@ class TestLockRepository(canLock: Boolean = true)(implicit mongo: () => DB) exte
   override def isLocked(reqLockId: String, reqOwner: String): Future[Boolean] = ???
 }
 
-class TestPushRegistrationService(testAuthConnector: TestAuthConnector, testRepository: TestRepository, testLockRepository: LockRepository, testAuditConnector: AuditConnector) extends LivePushRegistrationService {
+class TestPushRegistrationService(
+  accessControl: TestAccountAccessControl, testRepository: TestRepository, testLockRepository: LockRepository, testAuditConnector: AuditConnector)
+  extends LivePushRegistrationService {
   var saveDetails:Map[String, String]=Map.empty
 
   override def audit(service: String, details: Map[String, String])(implicit hc: HeaderCarrier, ec: ExecutionContext) = {
@@ -105,18 +103,13 @@ class TestPushRegistrationService(testAuthConnector: TestAuthConnector, testRepo
   override val configuredPlatforms: Seq[NativeOS] = Seq(iOS, Android, Windows)
 }
 
-class TestAccessCheck(testAuthConnector: TestAuthConnector) extends AccountAccessControl {
-  override val authConnector: AuthConnector = testAuthConnector
-}
-
 class TestAccountAccessControlWithAccept(testAccessCheck: AccountAccessControl) extends AccountAccessControlWithHeaderCheck {
   override val accessControl: AccountAccessControl = testAccessCheck
 }
 
-
 trait Setup extends MongoDbConnection {
   implicit val hc = HeaderCarrier()
-  val journeyId = Option(UUID.randomUUID().toString)
+  val journeyId = Option(randomUUID().toString)
 
   val nino = Nino("CS700100A")
   val acceptHeader = "Accept" -> "application/vnd.hmrc.1.0+json"
@@ -127,17 +120,18 @@ trait Setup extends MongoDbConnection {
   lazy val registration = PushRegistration("token-a", None, None)
   lazy val registrationWithDevice = PushRegistration("token-b", Some(device), None)
   lazy val tokenToEndpointMap = Map("token-a" -> Some("/end/point"), "token-b" -> None)
-  lazy val registrationJsonBody: JsValue = Json.toJson(registration)
-  lazy val registrationWithDeviceJsonBody: JsValue = Json.toJson(registrationWithDevice)
-  lazy val tokenToEndpointMapJsonBody: JsValue = Json.toJson(tokenToEndpointMap)
+  lazy val registrationJsonBody: JsValue = toJson(registration)
+  lazy val registrationWithDeviceJsonBody: JsValue = toJson(registrationWithDevice)
+  lazy val tokenToEndpointMapJsonBody: JsValue = toJson(tokenToEndpointMap)
 
   def fakeRequest(body: JsValue) = FakeRequest(POST, "url").withBody(body)
     .withHeaders("Content-Type" -> "application/json")
 
   lazy val emptyRequestWithAcceptHeader = FakeRequest().withHeaders(acceptHeader)
 
-  lazy val registrationBadRequest = fakeRequest(Json.toJson("Something Incorrect")).withHeaders(acceptHeader)
-  lazy val registrationBadRequestInvalidDevice = fakeRequest(Json.toJson("""{"token":"token","device":{"os":"unknown","version":"1.1","model":"some-device"}}""")).withHeaders(acceptHeader)
+  lazy val registrationBadRequest = fakeRequest(toJson("Something Incorrect")).withHeaders(acceptHeader)
+  lazy val registrationBadRequestInvalidDevice =
+    fakeRequest(toJson("""{"token":"token","device":{"os":"unknown","version":"1.1","model":"some-device"}}""")).withHeaders(acceptHeader)
 
   lazy val jsonRegistrationRequestTokenOnly = fakeRequest(registrationJsonBody).withHeaders(acceptHeader)
   lazy val jsonRegistrationRequestTokenAndDevice = fakeRequest(registrationWithDeviceJsonBody).withHeaders(acceptHeader)
@@ -150,18 +144,17 @@ trait Setup extends MongoDbConnection {
 
   def buildAuditCheck(testId: Int) = {
     Map("token" -> getRegistration(testId).token) ++ getRegistration(testId).device.fold(Map[String, String]())(item => {
-      Map("device" -> Json.stringify(Json.toJson(item)))
+      Map("device" -> stringify(toJson(item)))
     })
   }
 
   lazy val jsonRegistrationRequestNoAcceptHeader = fakeRequest(registrationJsonBody)
 
-  val authConnector = new TestAuthConnector(Some(nino))
   val testRepository = new TestRepository
   val lockRepository = new TestLockRepository
-  val testAccess = new TestAccessCheck(authConnector)
+  val testAccess = new TestAccountAccessControl(Some(nino))
   val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
-  val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, lockRepository, MicroserviceAuditConnector)
+  val testPushRegistrationService = new TestPushRegistrationService(testAccess, testRepository, lockRepository, MicroserviceAuditConnector)
   val testSandboxPersonalIncomeService = SandboxPushRegistrationService
   val sandboxCompositeAction = AccountAccessControlCheckAccessOff
 }
@@ -184,7 +177,7 @@ trait SuccessUpdated extends Setup {
       Future.successful(DatabaseUpdate(null, Updated(update, update)))
     }
   }
-  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, lockRepository, MicroserviceAuditConnector)
+  override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testRepository, lockRepository, MicroserviceAuditConnector)
 
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService
@@ -200,7 +193,7 @@ trait DbaseFailure extends Setup {
       Future.failed(new Exception("controlled repository explosion!"))
     }
   }
-  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, lockRepository, MicroserviceAuditConnector)
+  override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testRepository, lockRepository, MicroserviceAuditConnector)
 
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService
@@ -212,13 +205,12 @@ trait DbaseFailure extends Setup {
 
 trait AuthWithoutNino extends Setup {
 
-  override val authConnector = new TestAuthConnector(None) {
+  override val testAccess = new TestAccountAccessControl(None) {
     override def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = Future.failed(new Upstream4xxResponse("Error", 401, 401))
   }
 
-  override val testAccess = new TestAccessCheck(authConnector)
   override val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
-  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, lockRepository, MicroserviceAuditConnector)
+  override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testRepository, lockRepository, MicroserviceAuditConnector)
 
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService
@@ -229,13 +221,12 @@ trait AuthWithoutNino extends Setup {
 
 trait AuthLowCL extends Setup {
 
-  override val authConnector = new TestAuthConnector(None) {
+  override val testAccess = new TestAccountAccessControl(None) {
     override def grantAccess()(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[Authority] = Future.failed(new ForbiddenException("Forbidden"))
   }
 
-  override val testAccess = new TestAccessCheck(authConnector)
   override val testCompositeAction = new TestAccountAccessControlWithAccept(testAccess)
-  override val testPushRegistrationService = new TestPushRegistrationService(authConnector, testRepository, lockRepository, MicroserviceAuditConnector)
+  override val testPushRegistrationService = new TestPushRegistrationService(testAccess, testRepository, lockRepository, MicroserviceAuditConnector)
 
   val controller = new PushRegistrationController {
     override val service: PushRegistrationService = testPushRegistrationService
