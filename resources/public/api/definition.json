@@ -14,7 +14,8 @@
     "versions":[
       {
         "version":"1.0",
-        "status":"STABLE"
+        "status":"STABLE",
+        "endpointsEnabled": true
       }
     ]
   }
